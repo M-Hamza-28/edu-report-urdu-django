@@ -1,0 +1,9 @@
+@font-face {
+  font-family: 'JameelNoori';
+  src: url('JameelNooriNastaleeq.ttf') format('truetype');
+}
+
+body {
+  direction: rtl;
+  font-family: 'JameelNoori', serif;
+}

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+{% load urdu_filters %}
+
+<html lang="{{ lang }}" dir="{% if lang == 'urdu' %}rtl{% else %}ltr{% endif %}">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @font-face {
+      font-family: 'JameelNoori';
+      src: url('fonts/JameelNooriNastaleeq.ttf') format('truetype');
+    }
+
+    body {
+      font-family: {% if lang == 'urdu' %}'JameelNoori'{% else %}Arial{% endif %}, sans-serif;
+      direction: {% if lang == 'urdu' %}rtl{% else %}ltr{% endif %};
+      text-align: {% if lang == 'urdu' %}right{% else %}left{% endif %};
+      font-size: 14px;
+      padding: 40px;
+    }
+
+    h2 {
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 25px;
+    }
+
+    th, td {
+      border: 1px solid #555;
+      padding: 6px 10px;
+      font-size: 13px;
+    }
+
+    th {
+      background-color: #f1f1f1;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>
+    {% if lang == 'urdu' %}
+      رپورٹ برائے {{ report.student.full_name_urdu|default:report.student.full_name }}
+    {% else %}
+      Report for {{ report.student.full_name }}
+    {% endif %}
+  </h2>
+
+  <p>{% if lang == 'urdu' %}تاریخ:{% else %}Date:{% endif %} {{ report.report_date|date:"d-m-Y"|convert_urdu }}</p>
+  <p>{% if lang == 'urdu' %}استاد:{% else %}Tutor:{% endif %} {{ report.tutor.full_name_urdu|default:report.tutor.full_name }}</p>
+  <p>{% if lang == 'urdu' %}امتحان:{% else %}Exam:{% endif %} {{ report.exam.name }}</p>
+
+  {% if report.remarks %}
+    <p>{% if lang == 'urdu' %}تبصرہ:{% else %}Remarks:{% endif %} {{ report.remarks }}</p>
+  {% endif %}
+
+  <table>
+    <thead>
+      <tr>
+        <th>{% if lang == 'urdu' %}مضمون{% else %}Subject{% endif %}</th>
+        <th>{% if lang == 'urdu' %}نمبرات{% else %}Marks{% endif %}</th>
+        <th>{% if lang == 'urdu' %}کل نمبر{% else %}Total{% endif %}</th>
+        <th>{% if lang == 'urdu' %}فیصد{% else %}Percentage{% endif %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for entry in entries %}
+      <tr>
+        <td>
+          {% if lang == 'urdu' %}
+            {{ entry.subject.name_urdu|default:entry.subject.name }}
+          {% else %}
+            {{ entry.subject.name }}
+          {% endif %}
+        </td>
+        <td>{{ entry.marks_obtained|convert_urdu }}</td>
+        <td>{{ entry.total_marks|convert_urdu }}</td>
+        <td>{{ entry.percentage|floatformat:2|convert_urdu }}%</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+</body>
+</html>
