@@ -1,4 +1,5 @@
 from pathlib import Path
+import dj_database_url
 import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -10,9 +11,7 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-k&ki6rx19hm0(o
 DEBUG = False
 
 ALLOWED_HOSTS = [
-    '127.0.0.1',          # Localhost
-    'edu-report-urdu.onrender.com',  # Your Render service
-    # Add your custom domain here if you add one
+    'edu-report-urdu.onrender.com'
 ]
 
 # Application definition
@@ -59,15 +58,22 @@ TEMPLATES = [
 WSGI_APPLICATION = 'reporting_platform.wsgi.application'
 
 # PostgreSQL DB (edit credentials as needed, override in production)
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'reporting_db',
+#         'USER': 'postgres',
+#         'PASSWORD': 'new_password',
+#         'HOST': '127.0.0.1',
+#         'PORT': '5432',
+#     }
+# }
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'reporting_db',
-        'USER': 'postgres',
-        'PASSWORD': 'new_password',
-        'HOST': '127.0.0.1',
-        'PORT': '5432',
-    }
+
+    'default': dj_database_url.config(default='sqlite:///db.sqlite3')
+
+
 }
 
 AUTH_PASSWORD_VALIDATORS = [
