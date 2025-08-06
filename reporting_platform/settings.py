@@ -1,12 +1,19 @@
 from pathlib import Path
-import os  # ✅ Needed for os.path.join
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-k&ki6rx19hm0(o33vzd_^bn@gx@ijg&agdqf_2m&v9bn+_b3@f'
+# SECURITY WARNING: Use environment variable for SECRET_KEY in production!
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-k&ki6rx19hm0(o33vzd_^bn@gx@ijg&agdqf_2m&v9bn+_b3@f')
+
 DEBUG = False
-ALLOWED_HOSTS = []
+
+ALLOWED_HOSTS = [
+    '127.0.0.1',          # Localhost
+    'edu-report-urdu.onrender.com',  # Your Render service
+    # Add your custom domain here if you add one
+]
 
 # Application definition
 INSTALLED_APPS = [
@@ -18,18 +25,18 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'corsheaders',
     'reports',
-    'rest_framework',  # ✅ For DRF APIs
+    'rest_framework',  # DRF APIs
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware' ,
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware'
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
 ROOT_URLCONF = 'reporting_platform.urls'
@@ -37,7 +44,7 @@ ROOT_URLCONF = 'reporting_platform.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'reports', 'templates')],  # ✅ added
+        'DIRS': [os.path.join(BASE_DIR, 'reports', 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -51,7 +58,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'reporting_platform.wsgi.application'
 
-# PostgreSQL DB (edit credentials as needed)
+# PostgreSQL DB (edit credentials as needed, override in production)
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -83,13 +90,25 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-# ✅ Static files for fonts, CSS (used by WeasyPrint)
-STATIC_URL = 'static/'
+# Static files (CSS, JavaScript, Images, Fonts)
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # For collectstatic (Render, Heroku, etc.)
+
 STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'reports', 'static'),  # ✅ required for fonts in PDFs
+    os.path.join(BASE_DIR, 'reports', 'static'),  # For custom static (fonts/css)
 ]
+
+# Media files (user uploads, PDFs, images)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Allow local frontend
-CORS_ALLOW_ALL_ORIGINS = True  # For development only! Restrict this in production.
+# CORS (Cross-Origin Resource Sharing)
+CORS_ALLOW_ALL_ORIGINS = True  # For development. Restrict in production!
+# In production, use:
+# CORS_ALLOWED_ORIGINS = [
+#     "https://your-frontend-domain.com",
+#     "https://edu-report-urdu.onrender.com",
+# ]
+
