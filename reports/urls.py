@@ -7,7 +7,8 @@ from .views import (
     ExamViewSet,
     ReportViewSet,
     PerformanceEntryViewSet,
-    MessageLogViewSet
+    MessageLogViewSet,
+    FeedbackViewSet
 )
 
 # DRF router to auto-generate standard CRUD endpoints

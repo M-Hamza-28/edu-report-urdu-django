@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Tutor, Student, Subject, Exam, Report, PerformanceEntry, MessageLog
+from .models import Tutor, Student, Subject, Exam, Report, PerformanceEntry, MessageLog, Feedback
 from django.contrib.auth.models import User
 
 class UserSerializer(serializers.ModelSerializer):

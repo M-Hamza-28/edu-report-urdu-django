@@ -84,10 +84,13 @@ class MessageLog(models.Model):
 
     def __str__(self):
         return f"{self.contact_type} to {self.student.full_name} at {self.timestamp}"
-    
+
 class Feedback(models.Model):
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
-    name = models.CharField(max_length=100, blank=True)
+    tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE)
     message = models.TextField()
-    timestamp = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    # add any other fields you want
+
+    def __str__(self):
+        return f"Feedback by {self.tutor.full_name} at {self.created_at}"
 

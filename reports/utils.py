@@ -3,7 +3,7 @@ from django.conf import settings
 from django.template.loader import render_to_string
 from django.http import HttpResponse
 from weasyprint import HTML, CSS
-from .models import Report, PerformanceEntry
+from .models import Tutor, Student, Subject, Exam, Report, PerformanceEntry, MessageLog, Feedback
 
 def generate_report_pdf(report_id, lang='en'):
     try:
