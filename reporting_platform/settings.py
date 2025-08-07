@@ -11,7 +11,7 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-k&ki6rx19hm0(o
 DEBUG = False
 
 ALLOWED_HOSTS = [
-    'edu-report-urdu-django.onrender.com'
+    'edu-report-urdu-django.onrender.com',
     'edu-report-urdu.onrender.com',
     'localhost',
     '127.0.0.1'
@@ -33,6 +33,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
