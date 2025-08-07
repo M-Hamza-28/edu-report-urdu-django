@@ -1,14 +1,13 @@
 from django.contrib import admin
 from django.urls import path, include
-
-urlpatterns = [
-    from django.http import JsonResponse
+from django.http import JsonResponse
 
 
 def api_status(request):
     return JsonResponse({'status': 'API Running'})
 
-
+urlpatterns = [
+    path('', api_status),
     path('admin/', admin.site.urls),
     path('api/', include('reports.urls')),  # This line connects all your endpoints
 ]
