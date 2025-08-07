@@ -11,7 +11,7 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-k&ki6rx19hm0(o
 DEBUG = False
 
 ALLOWED_HOSTS = [
-    'edu-report-urdu-django.onrender.com'
+    'edu-report-urdu-django.onrender.com',
     'edu-report-urdu.onrender.com',
     'localhost',
     '127.0.0.1'
