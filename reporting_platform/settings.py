@@ -11,8 +11,11 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-k&ki6rx19hm0(o
 DEBUG = False
 
 ALLOWED_HOSTS = [
-    'edu-report-urdu.onrender.com'
+    'edu-report-urdu.onrender.com',
+    'localhost',
+    '127.0.0.1'
 ]
+
 
 # Application definition
 INSTALLED_APPS = [
@@ -111,10 +114,8 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS (Cross-Origin Resource Sharing)
-CORS_ALLOW_ALL_ORIGINS = True  # For development. Restrict in production!
-# In production, use:
-# CORS_ALLOWED_ORIGINS = [
-#     "https://your-frontend-domain.com",
-#     "https://edu-report-urdu.onrender.com",
-# ]
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "https://reporting-frontend.onrender.com",  # your new frontend URL
+]
 
