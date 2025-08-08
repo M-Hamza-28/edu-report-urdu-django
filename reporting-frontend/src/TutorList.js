@@ -19,24 +19,39 @@ function TutorList() {
   };
 
   const handleAddTutor = (e) => {
-    e.preventDefault();
-    setError(""); setSuccess("");
-    if (!fullName || !phone) {
-      setError("Both fields required.");
-      return;
-    }
-    API.post("tutors/", {
-      full_name: fullName,
-      phone: phone,
-      // Add other fields as needed by your Tutor model
+  e.preventDefault();
+  setError("");
+  setSuccess("");
+  if (!fullName || !phone) {
+    setError("Both fields required.");
+    return;
+  }
+
+  // Generate username slug and dummy email
+  const usernameSlug = fullName.replace(/\s+/g, '').toLowerCase();
+  const dummyEmail = `${usernameSlug}@example.com`;
+
+  API.post("tutors/", {
+    full_name: fullName,
+    phone: phone,
+    email: dummyEmail,
+    location: "Unknown",
+    user: {
+      username: usernameSlug,
+      email: dummyEmail,
+    },
+  })
+    .then(() => {
+      setSuccess("Tutor added!");
+      setFullName("");
+      setPhone("");
+      fetchTutors();
     })
-      .then(() => {
-        setSuccess("Tutor added!");
-        setFullName(""); setPhone("");
-        fetchTutors();
-      })
-      .catch((err) => setError("Add failed: " + (err.response?.data?.detail || "Check input")));
-  };
+    .catch((err) =>
+      setError("Add failed: " + (err.response?.data?.detail || "Check input"))
+    );
+};
+
 
   return (
     <div style={{ padding: 40, maxWidth: 480, margin: "auto" }}>
