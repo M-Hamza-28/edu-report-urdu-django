@@ -9,39 +9,42 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'email']
 
 class TutorSerializer(serializers.ModelSerializer):
-    """
-    Serializer for Tutor model.
-    Allows nested User creation and update.
-    """
-    user = UserSerializer()
+    # make nested user optional for writes
+    user = serializers.DictField(write_only=True, required=False)
 
     class Meta:
         model = Tutor
-        fields = '__all__'
+        fields = ["id", "full_name", "phone", "email", "location", "user"]
+        extra_kwargs = {
+            "email": {"required": False, "allow_blank": True},
+            "location": {"required": False, "allow_blank": True},
+        }
 
     def create(self, validated_data):
-        """
-        Allows creation of Tutor along with nested User data in one API call.
-        """
-        user_data = validated_data.pop('user')
-        user = User.objects.create(**user_data)
+        user_data = validated_data.pop("user", None)
+
+        # generate defaults if missing
+        base = (validated_data.get("full_name") or "tutor").lower().replace(" ", "")
+        suffix = User.objects.count() + 1
+        if not validated_data.get("email"):
+            validated_data["email"] = f"{base}{suffix}@example.com"
+        if not validated_data.get("location"):
+            validated_data["location"] = "Unknown"
+
+        if user_data:
+            username = user_data.get("username") or f"{base}{suffix}"
+            email = user_data.get("email") or validated_data["email"]
+        else:
+            username = f"{base}{suffix}"
+            email = validated_data["email"]
+
+        user, _ = User.objects.get_or_create(
+            username=username,
+            defaults={"email": email, "is_active": True},
+        )
+
         tutor = Tutor.objects.create(user=user, **validated_data)
         return tutor
-
-    def update(self, instance, validated_data):
-        """
-        Allows updating Tutor and nested User.
-        """
-        user_data = validated_data.pop('user', None)
-        if user_data:
-            user = instance.user
-            for attr, value in user_data.items():
-                setattr(user, attr, value)
-            user.save()
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-        return instance
 
 class StudentSerializer(serializers.ModelSerializer):
     """
