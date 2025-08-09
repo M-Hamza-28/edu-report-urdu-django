@@ -36,15 +36,18 @@ class TutorSerializer(serializers.ModelSerializer):
             email = user_data.get("email") or validated_data["email"]
         else:
             username = f"{base}{suffix}"
+            
             email = validated_data["email"]
 
         user, _ = User.objects.get_or_create(
             username=username,
             defaults={"email": email, "is_active": True},
+            
         )
 
         tutor = Tutor.objects.create(user=user, **validated_data)
         return tutor
+
 
 class StudentSerializer(serializers.ModelSerializer):
     """
@@ -107,3 +110,4 @@ class FeedbackSerializer(serializers.ModelSerializer):
     class Meta:
         model = Feedback
         fields = "__all__"
+
