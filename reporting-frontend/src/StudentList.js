@@ -71,6 +71,9 @@ function StudentList() {
           onChange={e => setGradeLevel(e.target.value)}
           style={{ marginRight: 8, width: 80 }}
         />
+        <button type="submit">Add Student</button>
+      </form>
+
         <select
           value={gender}
           onChange={(e) => setGender(e.target.value)} // React uses camelCase
