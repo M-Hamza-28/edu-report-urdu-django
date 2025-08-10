@@ -4,6 +4,9 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 
+// DEBUG: prove the active app + build time
+console.log("APP START:", window.location.origin, "BUILD_ID:", new Date().toISOString());
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
