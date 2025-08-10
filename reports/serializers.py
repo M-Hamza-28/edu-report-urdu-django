@@ -28,7 +28,7 @@ class TutorSerializer(serializers.ModelSerializer):
                     qs = qs.exclude(pk=self.instance.pk)
                 if qs.exists():
                     raise serializers.ValidationError("A tutor with this phone already exists.")
-        return value
+            return value
 
     def create(self, validated_data):
         user_data = validated_data.pop("user", None)
