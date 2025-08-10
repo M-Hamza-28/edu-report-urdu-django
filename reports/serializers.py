@@ -21,14 +21,14 @@ class TutorSerializer(serializers.ModelSerializer):
         }
         def validate_phone(self, value):
             # allow blank/None (optional phone) — but if provided, must be unique
-                if value:
-                    qs = Tutor.objects.filter(phone=value)
-                    # if updating, exclude self
-                    if self.instance:
-                        qs = qs.exclude(pk=self.instance.pk)
-                    if qs.exists():
-                        raise serializers.ValidationError("A tutor with this phone already exists.")
-                return value
+            if value:
+                qs = Tutor.objects.filter(phone=value)
+                # if updating, exclude self
+                if self.instance:
+                    qs = qs.exclude(pk=self.instance.pk)
+                if qs.exists():
+                    raise serializers.ValidationError("A tutor with this phone already exists.")
+            return value
 
     def create(self, validated_data):
         user_data = validated_data.pop("user", None)
@@ -67,17 +67,17 @@ class StudentSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def validate_gender(self, value):
-    # Normalize short codes and common variants
-    mapping = {
-        "M": "Male",
-        "F": "Female",
-        "male": "Male",
-        "female": "Female",
-    }
-    value = mapping.get(value, value)
-    if value not in ("Male", "Female"):
-        raise serializers.ValidationError("Gender must be Male or Female.")
-    return value
+        # Normalize short codes and common variants
+        mapping = {
+            "M": "Male",
+            "F": "Female",
+            "male": "Male",
+            "female": "Female",
+        }
+        value = mapping.get(value, value)
+        if value not in ("Male", "Female"):
+            raise serializers.ValidationError("Gender must be Male or Female.")
+        return value
 
 
 class SubjectSerializer(serializers.ModelSerializer):
