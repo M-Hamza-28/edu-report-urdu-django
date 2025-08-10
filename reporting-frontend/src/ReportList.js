@@ -107,6 +107,7 @@ function ReportList() {
       <table border={1} cellPadding={6} style={{ width: "100%" }}>
         <thead>
           <tr>
+            <th>Actions (Lang)</th>
             <th>ID</th>
             <th>Student</th>
             <th>Tutor</th>
