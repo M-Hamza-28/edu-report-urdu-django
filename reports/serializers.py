@@ -66,6 +66,11 @@ class StudentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Student
         fields = '__all__'
+        
+    def validate_gender(self, value):
+        mapping = {"M": "Male", "F": "Female"}
+        return mapping.get(value, value)
+
 
 class SubjectSerializer(serializers.ModelSerializer):
     """
