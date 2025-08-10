@@ -60,16 +60,24 @@ class TutorSerializer(serializers.ModelSerializer):
 
 
 class StudentSerializer(serializers.ModelSerializer):
-    """
-    Serializer for Student model.
-    """
+    
+    gender = serializers.CharField()
     class Meta:
         model = Student
         fields = '__all__'
-        
-    def validate_gender(self, value):
-        mapping = {"M": "Male", "F": "Female"}
-        return mapping.get(value, value)
+
+     def validate_gender(self, value):
+        # Normalize short codes and common variants
+        mapping = {
+            "M": "Male",
+            "F": "Female",
+            "male": "Male",
+            "female": "Female",
+        }
+        value = mapping.get(value, value)
+        if value not in ("Male", "Female"):
+            raise serializers.ValidationError("Gender must be Male or Female.")
+        return value
 
 
 class SubjectSerializer(serializers.ModelSerializer):
