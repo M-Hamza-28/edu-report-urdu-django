@@ -20,15 +20,15 @@ class TutorSerializer(serializers.ModelSerializer):
             "location": {"required": False, "allow_blank": True},
         }
         def validate_phone(self, value):
-        # allow blank/None (optional phone) — but if provided, must be unique
-            if value:
-                qs = Tutor.objects.filter(phone=value)
-                # if updating, exclude self
-                if self.instance:
-                    qs = qs.exclude(pk=self.instance.pk)
-                if qs.exists():
-                    raise serializers.ValidationError("A tutor with this phone already exists.")
-            return value
+            # allow blank/None (optional phone) — but if provided, must be unique
+                if value:
+                    qs = Tutor.objects.filter(phone=value)
+                    # if updating, exclude self
+                    if self.instance:
+                        qs = qs.exclude(pk=self.instance.pk)
+                    if qs.exists():
+                        raise serializers.ValidationError("A tutor with this phone already exists.")
+                return value
 
     def create(self, validated_data):
         user_data = validated_data.pop("user", None)
