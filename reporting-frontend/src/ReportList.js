@@ -8,6 +8,9 @@ import PerformanceEntryList from "./PerformanceEntryList";
  * Assumes your backend endpoint supports: /reports/<id>/generate_pdf/?lang=en|ur
  * If your route is different, adjust the URL below in `handleDownload`.
  */
+// reporting-frontend/src/ReportList.js
+asdf__break_build
+
 function DownloadMenu({ reportId }) {
   const [lang, setLang] = useState("");            // "en" | "ur"
   const [downloading, setDownloading] = useState(false);
