@@ -73,15 +73,13 @@ function StudentList() {
         />
         <select
           value={gender}
-          onChange={e => setGender(e.target.value)}
+          onChange={(e) => setGender(e.target.value)} // React uses camelCase
           style={{ marginRight: 8 }}
         >
-          <option value="">Gender</option>
-          <option value="M">Male</option>
-          <option value="F">Female</option>
+          <option value="">Select Gender</option>
+          <option value="Male">Male</option>
+          <option value="Female">Female</option>
         </select>
-        <button type="submit">Add Student</button>
-      </form>
 
       <table border={1} cellPadding={6} style={{ width: "100%" }}>
         <thead>
