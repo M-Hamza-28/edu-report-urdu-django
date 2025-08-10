@@ -1,6 +1,68 @@
+// reporting-frontend/src/ReportList.js
 import React, { useEffect, useState } from "react";
 import API from "./api";
 import PerformanceEntryList from "./PerformanceEntryList";
+
+/**
+ * Small inline component to handle language selection + download
+ * Assumes your backend endpoint supports: /reports/<id>/generate_pdf/?lang=en|ur
+ * If your route is different, adjust the URL below in `handleDownload`.
+ */
+function DownloadMenu({ reportId }) {
+  const [lang, setLang] = useState("");            // "en" | "ur"
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    if (!lang) {
+      alert("براہ کرم زبان منتخب کریں / Please select a language first");
+      return;
+    }
+    try {
+      setDownloading(true);
+      const res = await API.get(`reports/${reportId}/generate_pdf/`, {
+        params: { lang },                          // <-- ?lang=en or ur
+        responseType: "blob",
+      });
+
+      // Build a downloadable Blob -> <a download=...>
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `report_${reportId}_${lang}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      alert("PDF download failed");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+      <select
+        value={lang}
+        onChange={(e) => setLang(e.target.value)}
+        aria-label="Language"
+      >
+        <option value="">{/* placeholder */}Language / زبان</option>
+        <option value="en">English</option>
+        <option value="ur">اردو</option>
+      </select>
+      <button
+        type="button"
+        onClick={handleDownload}
+        disabled={downloading}
+      >
+        {downloading ? "Downloading..." : "Download"}
+      </button>
+    </span>
+  );
+}
 
 function ReportList() {
   const [reports, setReports] = useState([]);
@@ -20,35 +82,28 @@ function ReportList() {
       .finally(() => setLoading(false));
   };
 
-  // PDF download handler
+  // Kept for reference; not used now that per-row DownloadMenu is present.
   const handleDownloadPDF = (reportId) => {
-    API.get(`reports/${reportId}/generate_pdf/` ,{ responseType: 'blob' })
-
+    API.get(`reports/${reportId}/generate_pdf/`, { responseType: "blob" })
       .then((res) => {
-        // Create a link to download the PDF blob
         const url = window.URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
-        const link = document.createElement('a');
+        const link = document.createElement("a");
         link.href = url;
-        link.setAttribute('download', `report_${reportId}.pdf`);
+        link.setAttribute("download", `report_${reportId}.pdf`);
         document.body.appendChild(link);
         link.click();
         link.remove();
+        window.URL.revokeObjectURL(url);
       })
       .catch(() => alert("PDF download failed"));
   };
-
-  // const handleSendReport = (reportId, method) => {
-  // API.post(`reports/${reportId}/send_report/`, { method })
-  //   .then(res => alert(`Report sent: ${res.data.status}`))
-  //   .catch(() => alert("Sending failed"));
-  // };
-
 
   return (
     <div style={{ padding: 40, maxWidth: 900, margin: "auto" }}>
       <h2>All Reports</h2>
       {loading && <div>Loading...</div>}
       {error && <div style={{ color: "red" }}>{error}</div>}
+
       <table border={1} cellPadding={6} style={{ width: "100%" }}>
         <thead>
           <tr>
@@ -57,12 +112,14 @@ function ReportList() {
             <th>Tutor</th>
             <th>Exam</th>
             <th>Date</th>
-            <th>Actions</th>
+            <th>Actions</th> {/* includes Language dropdown + Download */}
           </tr>
         </thead>
         <tbody>
           {reports.length === 0 ? (
-            <tr><td colSpan={6} style={{ textAlign: "center" }}>No reports found</td></tr>
+            <tr>
+              <td colSpan={6} style={{ textAlign: "center" }}>No reports found</td>
+            </tr>
           ) : (
             reports.map((r) => (
               <tr key={r.id}>
@@ -73,17 +130,20 @@ function ReportList() {
                 <td>{r.exam?.date || ""}</td>
                 <td>
                   <button onClick={() => setSelectedReport(r.id)}>View Entries</button>
-                  <button onClick={() => handleDownloadPDF(r.id)} style={{ marginLeft: 6 }}>Download PDF</button>
-                  {/* <button onClick={() => handleSendReport(r.id, 'whatsapp')} style={{ marginLeft: 6 }}>Send WhatsApp</button>
-                  <button onClick={() => handleSendReport(r.id, 'sms')} style={{ marginLeft: 6 }}>Send SMS</button>
-                  <button onClick={() => handleSendReport(r.id, 'email')} style={{ marginLeft: 6 }}>Send Email</button> */}
+                  {/* Old single-language download:
+                  <button onClick={() => handleDownloadPDF(r.id)} style={{ marginLeft: 6 }}>Download PDF</button> */}
+                  <span style={{ marginLeft: 8 }}>
+                    <DownloadMenu reportId={r.id} />
+                  </span>
                 </td>
               </tr>
             ))
           )}
         </tbody>
       </table>
+
       <button onClick={fetchReports} style={{ marginTop: 12 }}>Refresh Reports</button>
+
       {/* Show performance entries for the selected report */}
       {selectedReport && (
         <PerformanceEntryList reportId={selectedReport} />
