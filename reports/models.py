@@ -1,19 +1,22 @@
 from django.db import models
+from django.db.models import Q
 from django.contrib.auth.models import User
 
 class Tutor(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    full_name = models.CharField(max_length=100)
-    full_name_urdu = models.CharField(max_length=100, blank=True, null=True)  # ✅ New
-    phone = models.CharField(max_length=15)
+    full_name = models.CharField(max_length=100)  # same names allowed ✔
+    phone = models.CharField(max_length=20, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
-    bio = models.TextField(blank=True)
-    profile_picture = models.ImageField(upload_to='tutor_profiles/', null=True, blank=True)
-    location = models.CharField(max_length=255, blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    # ... rest of fields
 
-    def __str__(self):
-        return self.full_name
+    class Meta:
+        constraints = [
+            # enforce unique phone only when phone is not NULL
+            models.UniqueConstraint(
+                fields=['phone'],
+                name='uniq_tutor_phone_when_present',
+                condition=Q(phone__isnull=False),
+            )
+        ]
 
 
 class Student(models.Model):
