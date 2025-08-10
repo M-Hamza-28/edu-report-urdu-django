@@ -64,6 +64,7 @@ function DownloadMenu({ reportId }) {
   );
 }
 
+console.log("DEBUG: ReportList.js is executing");
 function ReportList() {
   const [reports, setReports] = useState([]);
   const [error, setError] = useState("");
