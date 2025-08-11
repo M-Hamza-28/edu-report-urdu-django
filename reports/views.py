@@ -15,8 +15,11 @@ from .serializers import (
 )
 from .utils import generate_report_pdf
 
+logger = logging.getLogger(__name__)
+
 # Example: To restrict API access, uncomment and adjust permissions:
 # from rest_framework.permissions import IsAuthenticated
+
 
 class TutorViewSet(viewsets.ModelViewSet):
     """
@@ -26,6 +29,7 @@ class TutorViewSet(viewsets.ModelViewSet):
     serializer_class = TutorSerializer
     # permission_classes = [IsAuthenticated]  # Uncomment to require login
 
+
 class StudentViewSet(viewsets.ModelViewSet):
     """
     API endpoint for CRUD operations on Student.
@@ -33,6 +37,7 @@ class StudentViewSet(viewsets.ModelViewSet):
     queryset = Student.objects.all()
     serializer_class = StudentSerializer
     # permission_classes = [IsAuthenticated]
+
 
 class SubjectViewSet(viewsets.ModelViewSet):
     """
@@ -42,6 +47,7 @@ class SubjectViewSet(viewsets.ModelViewSet):
     serializer_class = SubjectSerializer
     # permission_classes = [IsAuthenticated]
 
+
 class ExamViewSet(viewsets.ModelViewSet):
     """
     API endpoint for CRUD operations on Exam.
@@ -50,6 +56,7 @@ class ExamViewSet(viewsets.ModelViewSet):
     serializer_class = ExamSerializer
     # permission_classes = [IsAuthenticated]
 
+
 class ReportViewSet(viewsets.ModelViewSet):
     """
     API endpoint for CRUD operations on Report.
@@ -57,39 +64,64 @@ class ReportViewSet(viewsets.ModelViewSet):
     queryset = Report.objects.all()
     serializer_class = ReportSerializer
 
-    @action(detail=True, methods=["get"], url_path="generate_pdf")
+    @action(detail=True, methods=['get'], url_path='generate_pdf')
     def generate_pdf(self, request, pk=None):
+        """
+        GET /api/reports/<pk>/generate_pdf/?lang=en|ur
 
-        # 1) Normalize/validate the query param
-        lang = (request.query_params.get("lang") or "en").lower()
-        if lang not in ("en", "ur"):
-            lang = "en"
+        - Validates lang
+        - Fetches Report (via self.get_object())
+        - Calls generate_report_pdf safely
+        - Accepts either util signature: (report, lang) OR (pk, lang)
+        - Returns FileResponse/HttpResponse directly, or wraps bytes in HttpResponse
+        """
+        lang = (request.query_params.get('lang') or 'en').lower().strip()
+        if lang not in {'en', 'ur'}:
+            return Response({"error": "Invalid 'lang' (use 'en' or 'ur')."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 2) Ensure the report exists (nice 404 if not)
-        get_object_or_404(Report, pk=pk)
-
-        # 3) Ask utils for the bytes for THIS language
-        #    IMPORTANT: generate_report_pdf MUST actually switch template/fonts based on `lang`.
+        # Ensure report exists (and respect ViewSet permissions/filters)
         try:
-            pdf_bytes: bytes = generate_report_pdf(report_id=pk, lang=lang)
-        except Exception as exc:
-            # helpful error for the frontend
-            return Response({"detail": f"PDF generation failed: {exc}"}, status=500)
+            report = self.get_object()  # raises 404 automatically if not found in queryset
+        except Exception as e:
+            logger.exception("Report fetch failed for pk=%s", pk)
+            return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
 
-        # 4) Return a proper FileResponse with language in filename
-        filename = f"report_{pk}_{lang}.pdf"
-        return FileResponse(
-            io.BytesIO(pdf_bytes),
-            as_attachment=True,
-            filename=filename,
-            content_type="application/pdf",
+        # Call your PDF generator with strong guards
+        try:
+            # Prefer (report, lang) signature
+            try:
+                result = generate_report_pdf(report, lang)
+            except TypeError:
+                # Fallback to older (pk, lang) signature if present
+                result = generate_report_pdf(pk, lang)
+        except Exception as e:
+            logger.exception("PDF generation failed for report=%s lang=%s", pk, lang)
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # Accept multiple return types to be flexible with your utils:
+        if isinstance(result, (HttpResponse, FileResponse)):
+            return result
+
+        if isinstance(result, (bytes, bytearray)):
+            resp = HttpResponse(result, content_type='application/pdf')
+            resp['Content-Disposition'] = f'attachment; filename="report_{pk}_{lang}.pdf"'
+            resp['Cache-Control'] = 'no-store'
+            return resp
+
+        # Anything else is unexpected
+        logger.error("generate_report_pdf returned unexpected type: %s", type(result))
+        return Response(
+            {"error": "PDF generator returned unexpected type (expected bytes or HttpResponse)."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
-    @action(detail=False, methods=['get'], url_path='student_progress/(?P<student_id>[^/.]+)')
+    @action(detail=False, methods=['get'], url_path=r'student_progress/(?P<student_id>[^/.]+)')
     def student_progress(self, request, student_id=None):
         """
         API endpoint to get subject-wise performance of a student across all exams.
         Returns Chart.js-friendly structure.
+
+        GET /api/reports/student_progress/<student_id>/
         """
         entries = PerformanceEntry.objects.filter(report__student__id=student_id)
         data = {}
@@ -103,21 +135,21 @@ class ReportViewSet(viewsets.ModelViewSet):
                 'total_marks': entry.total_marks,
                 'percentage': entry.percentage
             })
-
         return Response(data)
 
     @action(detail=True, methods=['get'], url_path='pdf')
     def pdf(self, request, pk=None):
         """
-        Download the PDF for a specific report.
+        Download the *stored* PDF file for a specific report (if you persist it).
+        GET /api/reports/<pk>/pdf/
         """
         report = self.get_object()
-        if not report.pdf_file:
-            return Response({'detail': 'PDF not generated for this report.'}, status=404)
+        if not getattr(report, "pdf_file", None):
+            return Response({'detail': 'PDF not generated for this report.'}, status=status.HTTP_404_NOT_FOUND)
         response = FileResponse(report.pdf_file.open('rb'), content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename=report_{report.id}.pdf'
         return response
-    
+
     @action(detail=True, methods=['post'])
     def send_report(self, request, pk=None):
         """
@@ -125,21 +157,18 @@ class ReportViewSet(viewsets.ModelViewSet):
         POST body: { "method": "whatsapp" | "sms" | "email" }
         """
         method = request.data.get("method")
-        report = self.get_object()
+        _ = self.get_object()  # ensure report exists (you can use it below)
 
         # TODO: Implement actual sending logic (Twilio, SMTP, etc.)
-        # For demo, just log or simulate:
         if method == "whatsapp":
-            # call your WhatsApp sending function here
             return Response({"status": "sent via WhatsApp"})
         elif method == "sms":
-            # call your SMS sending function here
             return Response({"status": "sent via SMS"})
         elif method == "email":
-            # call your email sending function here
             return Response({"status": "sent via Email"})
         else:
-            return Response({"error": "Invalid method"}, status=400)
+            return Response({"error": "Invalid method"}, status=status.HTTP_400_BAD_REQUEST)
+
 
 class PerformanceEntryViewSet(viewsets.ModelViewSet):
     """
@@ -149,6 +178,7 @@ class PerformanceEntryViewSet(viewsets.ModelViewSet):
     serializer_class = PerformanceEntrySerializer
     # permission_classes = [IsAuthenticated]
 
+
 class MessageLogViewSet(viewsets.ModelViewSet):
     """
     API endpoint for CRUD operations on MessageLog.
@@ -156,6 +186,7 @@ class MessageLogViewSet(viewsets.ModelViewSet):
     queryset = MessageLog.objects.all()
     serializer_class = MessageLogSerializer
     # permission_classes = [IsAuthenticated]
+
 
 class FeedbackViewSet(viewsets.ModelViewSet):
     queryset = Feedback.objects.all()
