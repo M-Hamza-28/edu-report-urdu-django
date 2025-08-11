@@ -57,10 +57,33 @@ class ReportViewSet(viewsets.ModelViewSet):
     queryset = Report.objects.all()
     serializer_class = ReportSerializer
 
-    @action(detail=True, methods=['get'], url_path='generate_pdf')
+    @action(detail=True, methods=["get"], url_path="generate_pdf")
     def generate_pdf(self, request, pk=None):
-        lang = request.query_params.get('lang', 'en')
-        return generate_report_pdf(pk, lang)
+
+        # 1) Normalize/validate the query param
+        lang = (request.query_params.get("lang") or "en").lower()
+        if lang not in ("en", "ur"):
+            lang = "en"
+
+        # 2) Ensure the report exists (nice 404 if not)
+        get_object_or_404(Report, pk=pk)
+
+        # 3) Ask utils for the bytes for THIS language
+        #    IMPORTANT: generate_report_pdf MUST actually switch template/fonts based on `lang`.
+        try:
+            pdf_bytes: bytes = generate_report_pdf(report_id=pk, lang=lang)
+        except Exception as exc:
+            # helpful error for the frontend
+            return Response({"detail": f"PDF generation failed: {exc}"}, status=500)
+
+        # 4) Return a proper FileResponse with language in filename
+        filename = f"report_{pk}_{lang}.pdf"
+        return FileResponse(
+            io.BytesIO(pdf_bytes),
+            as_attachment=True,
+            filename=filename,
+            content_type="application/pdf",
+        )
 
     @action(detail=False, methods=['get'], url_path='student_progress/(?P<student_id>[^/.]+)')
     def student_progress(self, request, student_id=None):
