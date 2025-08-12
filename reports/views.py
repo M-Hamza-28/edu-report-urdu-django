@@ -29,6 +29,7 @@ class ExamViewSet(viewsets.ModelViewSet):
     serializer_class = ExamSerializer
 
 class ReportViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
     queryset = Report.objects.all()
     serializer_class = ReportSerializer
 
