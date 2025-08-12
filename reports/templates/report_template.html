@@ -1,35 +1,49 @@
 <!DOCTYPE html>
+{% load static %}
 {% load urdu_filters %}
 
-<html lang="{{ lang }}" dir="{% if lang == 'urdu' %}rtl{% else %}ltr{% endif %}">
+<html lang="{{ lang }}" dir="{% if lang == 'ur' %}rtl{% else %}ltr{% endif %}">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <!-- Inline minimal base styles; main layout/RTL handled by utils-attached CSS files -->
+  {% if lang == 'ur' %}
   <style>
+    /* Ensure the Urdu font is available to WeasyPrint. Update the path if your static structure differs. */
+    @font-face {
+      font-family: "Noto Nastaliq Urdu";
+      src: url("{% static 'reports/fonts/NotoNastaliqUrdu-Regular.ttf' %}") format("truetype");
+      font-weight: normal;
+      font-style: normal;
+    }
+    html, body { direction: rtl; }
     body {
-      font-family: {% if lang == 'urdu' %}'JameelNoori'{% else %}Arial{% endif %}, sans-serif;
-      direction: {% if lang == 'urdu' %}rtl{% else %}ltr{% endif %};
-      text-align: {% if lang == 'urdu' %}right{% else %}left{% endif %};
+      font-family: "Noto Nastaliq Urdu", "Noto Naskh Arabic", "DejaVu Sans", serif;
+      text-align: right;
       font-size: 14px;
       padding: 40px;
     }
-    h2 {
-      font-size: 18px;
-      margin-bottom: 10px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 20px;
-    }
-    th, td {
-      padding: 8px 10px;
-      border: 1px solid #aaa;
-    }
+    h2 { font-size: 18px; margin-bottom: 10px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { padding: 8px 10px; border: 1px solid #aaa; text-align: right; }
   </style>
+  {% else %}
+  <style>
+    body {
+      font-family: "Inter", "DejaVu Sans", sans-serif;
+      direction: ltr;
+      text-align: left;
+      font-size: 14px;
+      padding: 40px;
+    }
+    h2 { font-size: 18px; margin-bottom: 10px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { padding: 8px 10px; border: 1px solid #aaa; text-align: left; }
+  </style>
+  {% endif %}
 </head>
 <body>
   <h2>
-    {% if lang == 'urdu' %}
+    {% if lang == 'ur' %}
       رپورٹ برائے {{ report.student.full_name }}
     {% else %}
       Report for {{ report.student.full_name }}
@@ -37,7 +51,7 @@
   </h2>
 
   <p>
-    {% if lang == 'urdu' %}
+    {% if lang == 'ur' %}
       استاد: {{ report.tutor.full_name }}
     {% else %}
       Tutor: {{ report.tutor.full_name }}
@@ -45,7 +59,7 @@
   </p>
 
   <p>
-    {% if lang == 'urdu' %}
+    {% if lang == 'ur' %}
       امتحان: {{ report.exam.name|subject_to_urdu }}
     {% else %}
       Exam: {{ report.exam.name }}
@@ -53,7 +67,7 @@
   </p>
 
   <p>
-    {% if lang == 'urdu' %}
+    {% if lang == 'ur' %}
       تاریخ: {{ report.report_date|convert_urdu_date }}
     {% else %}
       Date: {{ report.report_date }}
@@ -62,7 +76,7 @@
 
   {% if report.remarks %}
     <p>
-      {% if lang == 'urdu' %}
+      {% if lang == 'ur' %}
         تبصرہ: {{ report.remarks }}
       {% else %}
         Remarks: {{ report.remarks }}
@@ -71,29 +85,31 @@
   {% endif %}
 
   <table>
-    <tr>
-      <th>{% if lang == 'urdu' %}مضمون{% else %}Subject{% endif %}</th>
-      <th>{% if lang == 'urdu' %}حاصل کردہ نمبرات{% else %}Marks{% endif %}</th>
-      <th>{% if lang == 'urdu' %}کل نمبر{% else %}Total{% endif %}</th>
-      <th>{% if lang == 'urdu' %}فیصد{% else %}Percentage{% endif %}</th>
-    </tr>
-    {% for entry in entries %}
-    <tr>
-      {% if lang == 'urdu' %}
-        <td>{{ entry.subject.name|subject_to_urdu }}</td>
-        <td>{{ entry.marks_obtained|convert_urdu }}</td>
-        <td>{{ entry.total_marks|convert_urdu }}</td>
-        <td>
-          {{ entry.percentage|floatformat:2|convert_urdu }}%
-        </td>
-      {% else %}
-        <td>{{ entry.subject.name }}</td>
-        <td>{{ entry.marks_obtained }}</td>
-        <td>{{ entry.total_marks }}</td>
-        <td>{{ entry.percentage|floatformat:2 }}%</td>
-      {% endif %}
-    </tr>
-    {% endfor %}
+    <thead>
+      <tr>
+        <th>{% if lang == 'ur' %}مضمون{% else %}Subject{% endif %}</th>
+        <th>{% if lang == 'ur' %}حاصل کردہ نمبرات{% else %}Marks{% endif %}</th>
+        <th>{% if lang == 'ur' %}کل نمبر{% else %}Total{% endif %}</th>
+        <th>{% if lang == 'ur' %}فیصد{% else %}Percentage{% endif %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for entry in entries %}
+      <tr>
+        {% if lang == 'ur' %}
+          <td>{{ entry.subject.name|subject_to_urdu }}</td>
+          <td>{{ entry.marks_obtained|convert_urdu }}</td>
+          <td>{{ entry.total_marks|convert_urdu }}</td>
+          <td>{{ entry.percentage|floatformat:2|convert_urdu }}%</td>
+        {% else %}
+          <td>{{ entry.subject.name }}</td>
+          <td>{{ entry.marks_obtained }}</td>
+          <td>{{ entry.total_marks }}</td>
+          <td>{{ entry.percentage|floatformat:2 }}%</td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+    </tbody>
   </table>
 </body>
 </html>
