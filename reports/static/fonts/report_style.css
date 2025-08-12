@@ -1,9 +1,10 @@
+/* Use a shipped Nastaliq font; ensure the TTF/OTF exists under static */
 @font-face {
-  font-family: 'JameelNoori';
-  src: url('JameelNooriNastaleeq.ttf') format('truetype');
+  font-family: "Noto Nastaliq Urdu";
+  src: url("/static/reports/fonts/NotoNastaliqUrdu-Regular.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
 }
-
-body {
-  direction: rtl;
-  font-family: 'JameelNoori', serif;
-}
+html, body { direction: rtl; }
+body { font-family: "Noto Nastaliq Urdu", "Noto Naskh Arabic", "DejaVu Sans", serif; }
+th, td { text-align: right; }
