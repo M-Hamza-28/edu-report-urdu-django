@@ -1,79 +1,66 @@
-# reports/utils.py
-import io
 import os
+from typing import List
 from django.conf import settings
-from django.http import FileResponse, HttpResponse  # keep HttpResponse for 404s
-from django.template.loader import render_to_string, select_template
+from django.template.loader import render_to_string
+from django.http import HttpResponse
 from django.contrib.staticfiles import finders
 from weasyprint import HTML, CSS
-
 from .models import Report, PerformanceEntry
 
-def generate_report_pdf(report_id, lang: str = "en"):
+# Optional: digit conversion for Urdu numerals
+def convert_to_urdu_digits(value):
+    english = "0123456789."
+    urdu    = "۰۱۲۳۴۵۶۷۸۹٫"
+    return ''.join(urdu[english.index(c)] if c in english else c for c in str(value))
+
+def _resolve_static_paths(paths: List[str]) -> List[CSS]:
+    """Resolve a list of static file paths to WeasyPrint CSS objects, skipping missing ones."""
+    css_objs = []
+    for p in paths:
+        fs_path = finders.find(p)  # e.g. "reports/css/report_style.css"
+        if fs_path and os.path.exists(fs_path):
+            css_objs.append(CSS(filename=fs_path))
+    return css_objs
+
+def generate_report_pdf(report_id, lang='en'):
     """
-    Generate a report PDF in the requested language.
-    Returns a FileResponse with a language-specific filename.
-
-    lang: "en" | "ur"
+    Build a PDF for the given report id.
+    - For Urdu, we include an RTL stylesheet with @font-face for Noto Nastaliq Urdu.
+    - Returns raw PDF bytes (let the view set headers/filename).
     """
-    lang = (lang or "en").lower()
-    if lang not in ("en", "ur"):
-        lang = "en"
+    # 1) Fetch data
+    report = Report.objects.select_related("student", "tutor", "exam").get(id=report_id)
+    entries = PerformanceEntry.objects.filter(report=report).select_related("subject")
 
-    try:
-        report = Report.objects.get(id=report_id)
-    except Report.DoesNotExist:
-        return HttpResponse("Report not found", status=404)
+    is_ur = (str(lang or "en").lower() in {"ur", "urdu"})
+    chosen_lang = "ur" if is_ur else "en"
 
-    entries = PerformanceEntry.objects.filter(report=report)
-
-    # Context passed to the template (templates can branch on `lang`)
+    # 2) Template & context
+    # If you create a dedicated Urdu template, set template_ur = "reports/report_template_ur.html"
+    template = "report_template.html"
     context = {
         "report": report,
         "entries": entries,
-        "lang": lang,
-        "is_urdu": lang == "ur",
+        "lang": chosen_lang,
+        "is_ur": is_ur,
+        "convert_to_urdu_digits": convert_to_urdu_digits,
     }
 
-    # Pick the first existing template (Urdu -> English -> generic fallback)
-    # Create these if you don’t already have them:
-    #   templates/reports/report_ur.html
-    #   templates/reports/report_en.html
-    #   templates/report_template.html (fallback)
-    template = select_template([
-        "reports/report_ur.html" if lang == "ur" else "___dummy___",  # only try when needed
-        "reports/report_en.html" if lang == "en" else "___dummy___",
-        "report_template.html",  # your existing fallback
-    ])
+    html_string = render_to_string(template, context)
 
-    html_string = render_to_string(template.template.name, context)
+    # 3) Stylesheets
+    # Place these under your collected static, e.g.:
+    #   reports/css/report_style.css
+    #   reports/css/report_style_ur.css   (defines rtl + Nastaliq font-face)
+    base_css = "reports/css/report_style.css"
+    urdu_css = "reports/css/report_style_ur.css"
+    css_files = [base_css] + ([urdu_css] if is_ur else [])
+    css_objs = _resolve_static_paths(css_files)
 
-    # Resolve CSS path via staticfiles finders (works in dev + collectstatic)
-    # Place your stylesheet at:  static/fonts/report_style.css
-    css_rel_path = "fonts/report_style.css"
-    css_abs_path = finders.find(css_rel_path)
+    # 4) Base URL for resolving <img src="...">, etc.
+    # Prefer STATIC_ROOT if collectstatic ran; else fall back to BASE_DIR.
+    base_url = settings.STATIC_ROOT if getattr(settings, "STATIC_ROOT", None) else settings.BASE_DIR
 
-    # Base URL for resolving relative asset paths in HTML/CSS (fonts, images)
-    # Prefer the directory containing the CSS; fallback to STATIC_ROOT or BASE_DIR.
-    base_url = os.path.dirname(css_abs_path) if css_abs_path else (
-        settings.STATIC_ROOT if getattr(settings, "STATIC_ROOT", None) else settings.BASE_DIR
-    )
-
-    # Build the PDF bytes
-    stylesheets = [CSS(css_abs_path)] if css_abs_path else None
-    pdf_bytes = HTML(string=html_string, base_url=base_url).write_pdf(stylesheets=stylesheets)
-
-    # Return a downloadable response with language in the filename
-    filename = f"report_{report_id}_{lang}.pdf"
-    return FileResponse(
-        io.BytesIO(pdf_bytes),
-        as_attachment=True,
-        filename=filename,
-        content_type="application/pdf",
-    )
-
-
-def convert_to_urdu_digits(value):
-    english = "0123456789."
-    urdu = "۰۱۲۳۴۵۶۷۸۹٫"
-    return "".join(urdu[english.index(c)] if c in english else c for c in str(value))
+    # 5) Render to PDF bytes
+    pdf_bytes = HTML(string=html_string, base_url=base_url).write_pdf(stylesheets=css_objs)
+    return pdf_bytes  # return bytes; view will wrap in HttpResponse
