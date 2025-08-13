@@ -2,6 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.http import HttpResponse, FileResponse
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from .models import Tutor, Student, Subject, Exam, Report, PerformanceEntry, MessageLog, Feedback
 from .serializers import (
     TutorSerializer, StudentSerializer, SubjectSerializer, ExamSerializer,
