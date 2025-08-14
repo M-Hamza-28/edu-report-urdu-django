@@ -2,8 +2,11 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.http import HttpResponse, FileResponse
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from .models import Tutor, Student, Subject, Exam, Report, PerformanceEntry, MessageLog, Feedback
+from rest_framework.permissions import IsAuthenticated
+from .models import (
+    Tutor, Student, Subject, Exam, Report,
+    PerformanceEntry, MessageLog, Feedback
+)
 from .serializers import (
     TutorSerializer, StudentSerializer, SubjectSerializer, ExamSerializer,
     ReportSerializer, PerformanceEntrySerializer, MessageLogSerializer, FeedbackSerializer
@@ -14,31 +17,35 @@ import logging
 logger = logging.getLogger(__name__)
 
 class TutorViewSet(viewsets.ModelViewSet):
-    queryset = Tutor.objects.all()
+    queryset = Tutor.objects.all().select_related("user")
     serializer_class = TutorSerializer
 
+
 class StudentViewSet(viewsets.ModelViewSet):
-    queryset = Student.objects.all()
+    queryset = Student.objects.all().select_related("tutor")
     serializer_class = StudentSerializer
+
 
 class SubjectViewSet(viewsets.ModelViewSet):
     queryset = Subject.objects.all()
     serializer_class = SubjectSerializer
 
+
 class ExamViewSet(viewsets.ModelViewSet):
     queryset = Exam.objects.all()
     serializer_class = ExamSerializer
 
+
 class ReportViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
-    queryset = Report.objects.all()
+    queryset = Report.objects.all().select_related("student", "tutor", "exam")
     serializer_class = ReportSerializer
 
     @action(detail=True, methods=['get'], url_path='generate_pdf')
     def generate_pdf(self, request, pk=None):
         """GET /api/reports/<pk>/generate_pdf/?lang=en|ur"""
         raw = (request.query_params.get('lang') or 'en').strip().lower()
-        lang_map = {'en':'en','eng':'en','english':'en','ur':'ur','urdu':'ur'}
+        lang_map = {'en': 'en', 'eng': 'en', 'english': 'en', 'ur': 'ur', 'urdu': 'ur'}
         lang = lang_map.get(raw, 'en')
 
         # Ensure report exists (respects queryset filters/permissions)
@@ -64,15 +71,22 @@ class ReportViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path=r'student_progress/(?P<student_id>[^/.]+)')
     def student_progress(self, request, student_id=None):
-        entries = PerformanceEntry.objects.filter(report__student__id=student_id)
+        entries = (
+            PerformanceEntry.objects
+            .filter(report__student__id=student_id)
+            .select_related("report__exam", "subject")
+            .order_by("report__exam__date", "subject__name")
+        )
         data = {}
         for entry in entries:
             subject = entry.subject.name
             data.setdefault(subject, []).append({
                 'exam': entry.report.exam.name,
+                'exam_type': entry.report.exam.exam_type,   # <- include type
+                'date': entry.report.exam.date,
                 'marks_obtained': entry.marks_obtained,
                 'total_marks': entry.total_marks,
-                'percentage': entry.percentage
+                'percentage': entry.percentage,
             })
         return Response(data)
 
@@ -98,14 +112,17 @@ class ReportViewSet(viewsets.ModelViewSet):
         else:
             return Response({"error": "Invalid method"}, status=400)
 
+
 class PerformanceEntryViewSet(viewsets.ModelViewSet):
-    queryset = PerformanceEntry.objects.all()
+    queryset = PerformanceEntry.objects.all().select_related("report__exam", "subject")
     serializer_class = PerformanceEntrySerializer
 
+
 class MessageLogViewSet(viewsets.ModelViewSet):
-    queryset = MessageLog.objects.all()
+    queryset = MessageLog.objects.all().select_related("student")
     serializer_class = MessageLogSerializer
 
+
 class FeedbackViewSet(viewsets.ModelViewSet):
-    queryset = Feedback.objects.all()
+    queryset = Feedback.objects.all().select_related("tutor")
     serializer_class = FeedbackSerializer

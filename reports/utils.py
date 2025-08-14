@@ -35,6 +35,12 @@ def generate_report_pdf(report_id, lang='en'):
     is_ur = (str(lang or "en").lower() in {"ur", "urdu"})
     chosen_lang = "ur" if is_ur else "en"
 
+    # Choose what to print in the header as “Exam: …”
+    # Prefer type (Mid Term / Final) and fall back to exam.name if type missing.
+    exam_type = getattr(report.exam, "exam_type", "") or ""
+    exam_name = getattr(report.exam, "name", "") or ""
+    exam_display = exam_type or exam_name  # <- key fix to avoid showing a subject name
+
     # 2) Template & context
     # If you create a dedicated Urdu template, set template_ur = "reports/report_template_ur.html"
     template = "report_template.html"
@@ -44,23 +50,20 @@ def generate_report_pdf(report_id, lang='en'):
         "lang": chosen_lang,
         "is_ur": is_ur,
         "convert_to_urdu_digits": convert_to_urdu_digits,
+        "exam_display": exam_display,  # <- use this in template instead of report.exam.name
     }
 
     html_string = render_to_string(template, context)
 
     # 3) Stylesheets
-    # Place these under your collected static, e.g.:
-    #   reports/css/report_style.css
-    #   reports/css/report_style_ur.css   (defines rtl + Nastaliq font-face)
     base_css = "reports/css/report_style.css"
     urdu_css = "reports/css/report_style_ur.css"
     css_files = [base_css] + ([urdu_css] if is_ur else [])
     css_objs = _resolve_static_paths(css_files)
 
     # 4) Base URL for resolving <img src="...">, etc.
-    # Prefer STATIC_ROOT if collectstatic ran; else fall back to BASE_DIR.
     base_url = settings.STATIC_ROOT if getattr(settings, "STATIC_ROOT", None) else settings.BASE_DIR
 
     # 5) Render to PDF bytes
     pdf_bytes = HTML(string=html_string, base_url=base_url).write_pdf(stylesheets=css_objs)
-    return pdf_bytes  # return bytes; view will wrap in HttpResponse
+    return pdf_bytes

@@ -1,6 +1,9 @@
 from rest_framework import serializers
-from .models import Tutor, Student, Subject, Exam, Report, PerformanceEntry, MessageLog, Feedback
 from django.contrib.auth.models import User
+from .models import (
+    Tutor, Student, Subject, Exam, Report,
+    PerformanceEntry, MessageLog, Feedback
+)
 
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for Django's built-in User model."""
@@ -8,8 +11,13 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'username', 'email']
 
+
 class TutorSerializer(serializers.ModelSerializer):
-    # make nested user optional for writes
+    """
+    Serializer for Tutor.
+    - Accepts optional nested "user" (dict) to create/link a User.
+    - Ensures phone is unique if provided.
+    """
     user = serializers.DictField(write_only=True, required=False)
 
     class Meta:
@@ -18,62 +26,56 @@ class TutorSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             "email": {"required": False, "allow_blank": True},
             "location": {"required": False, "allow_blank": True},
+            "phone": {"required": False, "allow_null": True, "allow_blank": True},
         }
-def validate_phone(self, value):
-    # allow blank/None (optional phone) — but if provided, must be unique
-    if value:
-        qs = Tutor.objects.filter(phone=value)
-        # if updating, exclude self
-        if self.instance:
-            qs = qs.exclude(pk=self.instance.pk)
-        if qs.exists():
-            raise serializers.ValidationError("A tutor with this phone already exists.")
-    return value
+
+    def validate_phone(self, value):
+        # Optional phone; if provided, enforce uniqueness (excluding self on update)
+        if value:
+            qs = Tutor.objects.filter(phone=value)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError("A tutor with this phone already exists.")
+        return value
 
     def create(self, validated_data):
         user_data = validated_data.pop("user", None)
 
-        # generate defaults if missing
         base = (validated_data.get("full_name") or "tutor").lower().replace(" ", "")
         suffix = User.objects.count() + 1
-        if not validated_data.get("email"):
-            validated_data["email"] = f"{base}{suffix}@example.com"
-        if not validated_data.get("location"):
-            validated_data["location"] = "Unknown"
 
+        # default email/location if missing
+        email = validated_data.get("email") or f"{base}{suffix}@example.com"
+        validated_data.setdefault("email", email)
+        validated_data.setdefault("location", "Unknown")
+
+        # derive username/email from nested user (if present) or defaults
         if user_data:
             username = user_data.get("username") or f"{base}{suffix}"
-            email = user_data.get("email") or validated_data["email"]
+            user_email = user_data.get("email") or email
         else:
             username = f"{base}{suffix}"
-            
-            email = validated_data["email"]
+            user_email = email
 
         user, _ = User.objects.get_or_create(
             username=username,
-            defaults={"email": email, "is_active": True},
-            
+            defaults={"email": user_email, "is_active": True},
         )
-
         tutor = Tutor.objects.create(user=user, **validated_data)
         return tutor
 
 
 class StudentSerializer(serializers.ModelSerializer):
-    
+    # accept "M/F/male/female" and normalize to "Male"/"Female"
     gender = serializers.CharField()
+
     class Meta:
         model = Student
         fields = '__all__'
 
     def validate_gender(self, value):
-        # Normalize short codes and common variants
-        mapping = {
-            "M": "Male",
-            "F": "Female",
-            "male": "Male",
-            "female": "Female",
-        }
+        mapping = {"M": "Male", "F": "Female", "male": "Male", "female": "Female"}
         value = mapping.get(value, value)
         if value not in ("Male", "Female"):
             raise serializers.ValidationError("Gender must be Male or Female.")
@@ -81,26 +83,18 @@ class StudentSerializer(serializers.ModelSerializer):
 
 
 class SubjectSerializer(serializers.ModelSerializer):
-    """
-    Serializer for Subject model.
-    """
     class Meta:
         model = Subject
         fields = '__all__'
 
+
 class ExamSerializer(serializers.ModelSerializer):
-    """
-    Serializer for Exam model.
-    """
     class Meta:
         model = Exam
         fields = '__all__'
 
+
 class PerformanceEntrySerializer(serializers.ModelSerializer):
-    """
-    Serializer for PerformanceEntry model.
-    Includes percentage (read-only) and subject name.
-    """
     percentage = serializers.ReadOnlyField()
     subject_name = serializers.CharField(source='subject.name', read_only=True)
 
@@ -108,29 +102,32 @@ class PerformanceEntrySerializer(serializers.ModelSerializer):
         model = PerformanceEntry
         fields = '__all__'
 
+
 class ReportSerializer(serializers.ModelSerializer):
     """
-    Serializer for Report model.
-    Includes related PerformanceEntries (entries).
+    Report:
+    - Includes read-only 'entries'
+    - Convenience read-only fields for student/exam/tutor names and exam_type
     """
     entries = PerformanceEntrySerializer(many=True, read_only=True)
     student_name = serializers.CharField(source='student.full_name', read_only=True)
+    tutor_name = serializers.CharField(source='tutor.full_name', read_only=True)
     exam_name = serializers.CharField(source='exam.name', read_only=True)
+    exam_type = serializers.CharField(source='exam.exam_type', read_only=True)
+    exam_date = serializers.DateField(source='exam.date', read_only=True)
 
     class Meta:
         model = Report
         fields = '__all__'
 
+
 class MessageLogSerializer(serializers.ModelSerializer):
-    """
-    Serializer for MessageLog model.
-    """
     class Meta:
         model = MessageLog
         fields = '__all__'
+
 
 class FeedbackSerializer(serializers.ModelSerializer):
     class Meta:
         model = Feedback
         fields = "__all__"
-

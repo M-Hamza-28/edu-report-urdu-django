@@ -60,9 +60,9 @@
 
   <p>
     {% if lang == 'ur' %}
-      امتحان: {{ report.exam.name|subject_to_urdu }}
+      امتحان: {{ exam_display }}
     {% else %}
-      Exam: {{ report.exam.name }}
+      Exam: {{ exam_display }}
     {% endif %}
   </p>
 
