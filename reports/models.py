@@ -43,6 +43,7 @@ class Subject(models.Model):
     name = models.CharField(max_length=100)
     name_urdu = models.CharField(max_length=100, blank=True, null=True)  # ✅ New
     category = models.CharField(max_length=50, blank=True, null=True)
+    subjects = models.ManyToManyField('Subject', related_name='students', blank=True)
 
     def __str__(self):
         return self.name
