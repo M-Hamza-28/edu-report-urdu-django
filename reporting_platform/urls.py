@@ -11,8 +11,8 @@ urlpatterns = [
     path('', api_status),
     path('admin/', admin.site.urls),
     path('api/', include('reports.urls')),  # This line connects all your endpoints,
-    path("api/token/", TokenObtainPairView.as_view(),
-    path("api/token/refresh/", TokenRefreshView.as_view()
+    path("api/token/", TokenObtainPairView.as_view()),
+    path("api/token/refresh/", TokenRefreshView.as_view())
 ]
 
 
