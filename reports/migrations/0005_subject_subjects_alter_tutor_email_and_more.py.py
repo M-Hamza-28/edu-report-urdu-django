@@ -16,14 +16,13 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # 1) Make sure the field itself is not unique (uniqueness handled by partial index/constraint)
+        # 1) Make sure the field itself is not unique
         migrations.AlterField(
             model_name="tutor",
             name="phone",
             field=models.CharField(max_length=15, null=True, blank=True),
         ),
-
-        # If your original 0005 altered these tutor fields, keep them (harmless if already matching)
+        # keep these if your 0005 adjusted them; harmless if already matching
         migrations.AlterField(
             model_name="tutor",
             name="email",
@@ -35,9 +34,8 @@ class Migration(migrations.Migration):
             field=models.CharField(max_length=255, null=True, blank=True),
         ),
 
-        # 2) DB op: create the partial unique index IF NOT EXISTS (won't fail if it already exists)
-        #    STATE op: add the UniqueConstraint to Django's model state ONLY (no DB action),
-        #    so future migrations remain consistent.
+        # 2) DB: create the partial unique index IF NOT EXISTS
+        #    STATE: add the UniqueConstraint only to Django's model state
         migrations.SeparateDatabaseAndState(
             database_operations=[
                 migrations.RunSQL(
@@ -61,8 +59,8 @@ class Migration(migrations.Migration):
             ],
         ),
 
-        # If your original 0005 also added other fields (e.g., Student.subjects M2M), add them here.
-        # Example (uncomment & adjust if you actually intended this in 0005):
+        # If your original 0005 also added other fields, add them here (state ops).
+        # Example (uncomment & adjust only if you intended this in 0005):
         migrations.AddField(
             model_name="student",
             name="subjects",
