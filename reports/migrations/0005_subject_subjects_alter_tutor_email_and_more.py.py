@@ -5,14 +5,13 @@ from django.db.models import Q
 
 class Migration(migrations.Migration):
     """
-    Fix deploy error:
-      psycopg2.errors.DuplicateTable: relation "uniq_tutor_phone_when_present" already exists
+    Make Tutor.phone unique only when present, without clashing on deploy.
 
     Strategy:
-      1) DROP the leftover constraint/index if they exist (no-op if absent)
-      2) Ensure Tutor.phone is NOT unique at field level
-      3) Re-add a single conditional UniqueConstraint on phone (when not null/empty)
-      4) (Keep any other field alterations you previously intended here)
+      - Ensure Tutor.phone is NOT unique at field level.
+      - In DB: CREATE UNIQUE INDEX IF NOT EXISTS ... WHERE phone IS NOT NULL AND phone <> ''.
+      - In Django state: Add the UniqueConstraint with the same condition, so future
+        migrations see the correct schema without trying to re-create it.
     """
 
     dependencies = [
@@ -20,26 +19,14 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # --- 0) Defensive cleanup: drop any leftover objects with this name ---
-        migrations.RunSQL(
-            # Drop constraint if present
-            "ALTER TABLE reports_tutor DROP CONSTRAINT IF EXISTS uniq_tutor_phone_when_present;",
-            reverse_sql="",
-        ),
-        migrations.RunSQL(
-            # Drop index with the same name if present (some earlier attempts may have created it directly)
-            "DROP INDEX IF EXISTS uniq_tutor_phone_when_present;",
-            reverse_sql="",
-        ),
-
-        # --- 1) Make sure the Tutor.phone field itself is NOT unique at field level ---
+        # 1) Make sure the phone field itself is not unique (uniqueness handled by conditional index/constraint)
         migrations.AlterField(
             model_name="tutor",
             name="phone",
             field=models.CharField(max_length=15, null=True, blank=True),
         ),
 
-        # If your original 0005 altered these fields, keep them here (safe no-ops if already matching)
+        # (Optional) Keep these if your original 0005 altered these tutor fields.
         migrations.AlterField(
             model_name="tutor",
             name="email",
@@ -51,21 +38,39 @@ class Migration(migrations.Migration):
             field=models.CharField(max_length=255, null=True, blank=True),
         ),
 
-        # --- 2) Re-add the intended conditional unique constraint (single source of truth) ---
-        migrations.AddConstraint(
-            model_name="tutor",
-            constraint=models.UniqueConstraint(
-                fields=("phone",),
-                name="uniq_tutor_phone_when_present",
-                condition=Q(phone__isnull=False) & ~Q(phone=""),
-            ),
+        # 2) Database-side: create the partial unique index ONLY IF it doesn't exist.
+        #    This avoids the "relation already exists" error on environments where it was created earlier.
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunSQL(
+                    sql=(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS uniq_tutor_phone_when_present "
+                        "ON reports_tutor (phone) "
+                        "WHERE phone IS NOT NULL AND phone <> '';"
+                    ),
+                    reverse_sql=(
+                        "DROP INDEX IF EXISTS uniq_tutor_phone_when_present;"
+                    ),
+                ),
+            ],
+            state_operations=[
+                # 3) Django state: record the intended UniqueConstraint so the model state stays correct.
+                migrations.AddConstraint(
+                    model_name="tutor",
+                    constraint=models.UniqueConstraint(
+                        fields=("phone",),
+                        name="uniq_tutor_phone_when_present",
+                        condition=Q(phone__isnull=False) & ~Q(phone=""),
+                    ),
+                ),
+            ],
         ),
 
-        # --- 3) (Optional) If your original 0005 added other fields, put them below ---
-        # Example for adding a ManyToMany (adjust to your actual intent; remove if not needed):
-        migrations.AddField(
-            model_name="student",
-            name="subjects",
-            field=models.ManyToManyField(blank=True, related_name="students", to="reports.subject"),
-        ),
+        # 4) If your original 0005 also added other fields (e.g., M2M subjects on Student),
+        #    add those operations here (uncomment and adjust as needed).
+        # migrations.AddField(
+        #     model_name="student",
+        #     name="subjects",
+        #     field=models.ManyToManyField(blank=True, related_name="students", to="reports.subject"),
+        # ),
     ]
