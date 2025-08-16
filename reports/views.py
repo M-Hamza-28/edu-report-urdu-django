@@ -27,8 +27,13 @@ class StudentViewSet(viewsets.ModelViewSet):
 
 
 class SubjectViewSet(viewsets.ModelViewSet):
-    queryset = Subject.objects.all()
     serializer_class = SubjectSerializer
+    def get_queryset(self):
+        qs = Subject.objects.all()
+        student_id = self.request.query_params.get("student")
+        if student_id:
+            qs = qs.filter(students__id=student_id)  # ← ONLY subjects linked to that student
+        return qs.order_by("name")
 
 
 class ExamViewSet(viewsets.ModelViewSet):
@@ -114,9 +119,13 @@ class ReportViewSet(viewsets.ModelViewSet):
 
 
 class PerformanceEntryViewSet(viewsets.ModelViewSet):
-    queryset = PerformanceEntry.objects.all().select_related("report__exam", "subject")
     serializer_class = PerformanceEntrySerializer
-
+    def get_queryset(self):
+        qs = PerformanceEntry.objects.select_related("subject", "report", "report__exam")
+        report_id = self.request.query_params.get("report")
+        if report_id:
+            qs = qs.filter(report_id=report_id)      # ← ONLY entries for this report
+        return qs.order_by("id")
 
 class MessageLogViewSet(viewsets.ModelViewSet):
     queryset = MessageLog.objects.all().select_related("student")
