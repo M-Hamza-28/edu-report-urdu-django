@@ -18,14 +18,12 @@ class Tutor(models.Model):
 
     class Meta:
         constraints = [
-            # Enforce unique phone only when provided
             models.UniqueConstraint(
                 fields=['phone'],
                 name='uniq_tutor_phone_when_present',
                 condition=Q(phone__isnull=False) & ~Q(phone=''),
             )
         ]
-
 
 class Student(models.Model):
     tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE, related_name='students')
@@ -34,23 +32,19 @@ class Student(models.Model):
     gender = models.CharField(max_length=10, choices=[('Male', 'Male'), ('Female', 'Female')])
     grade_level = models.CharField(max_length=50)
     registration_date = models.DateField(auto_now_add=True)
-    # ✅ Correct: Many-to-many to Subject with reverse name "students"
     subjects = models.ManyToManyField('Subject', related_name='students', blank=True)
 
     def __str__(self):
         return self.full_name
 
-
 class Subject(models.Model):
     name = models.CharField(max_length=100)
     name_urdu = models.CharField(max_length=100, blank=True, null=True)
     category = models.CharField(max_length=50, blank=True, null=True)
-    # ❌ Removed the erroneous self ManyToMany:
-    # subjects = models.ManyToManyField('Subject', related_name='students', blank=True)
+    # ⛔️ removed: subjects = models.ManyToManyField('Subject', related_name='students', blank=True)
 
     def __str__(self):
         return self.name
-
 
 class Exam(models.Model):
     name = models.CharField(max_length=100)
@@ -59,7 +53,6 @@ class Exam(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.exam_type})"
-
 
 class Report(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='reports')
@@ -71,7 +64,6 @@ class Report(models.Model):
 
     def __str__(self):
         return f"Report for {self.student.full_name} - {self.exam.name}"
-
 
 class PerformanceEntry(models.Model):
     report = models.ForeignKey(Report, on_delete=models.CASCADE, related_name='entries')
@@ -89,7 +81,6 @@ class PerformanceEntry(models.Model):
     def __str__(self):
         return f"{self.subject.name} - {self.marks_obtained}/{self.total_marks}"
 
-
 class MessageLog(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
     contact_type = models.CharField(max_length=10, choices=[('WhatsApp', 'WhatsApp'), ('SMS', 'SMS'), ('Email', 'Email')])
@@ -99,7 +90,6 @@ class MessageLog(models.Model):
 
     def __str__(self):
         return f"{self.contact_type} to {self.student.full_name} at {self.timestamp}"
-
 
 class Feedback(models.Model):
     tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE)
