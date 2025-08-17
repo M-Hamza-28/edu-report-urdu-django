@@ -34,6 +34,7 @@ class Student(models.Model):
     gender = models.CharField(max_length=10, choices=[('Male', 'Male'), ('Female', 'Female')])
     grade_level = models.CharField(max_length=50)
     registration_date = models.DateField(auto_now_add=True)
+    subjects = models.ManyToManyField('Subject', related_name='students', blank=True)
 
     def __str__(self):
         return self.full_name

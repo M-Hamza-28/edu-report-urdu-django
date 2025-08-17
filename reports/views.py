@@ -28,6 +28,8 @@ class StudentViewSet(viewsets.ModelViewSet):
 
 class SubjectViewSet(viewsets.ModelViewSet):
     serializer_class = SubjectSerializer
+    queryset = Subject.objects.all() 
+
     def get_queryset(self):
         qs = Subject.objects.all()
         student_id = self.request.query_params.get("student")
@@ -120,6 +122,8 @@ class ReportViewSet(viewsets.ModelViewSet):
 
 class PerformanceEntryViewSet(viewsets.ModelViewSet):
     serializer_class = PerformanceEntrySerializer
+    queryset = PerformanceEntry.objects.select_related("subject", "report", "report__exam")
+    
     def get_queryset(self):
         qs = PerformanceEntry.objects.select_related("subject", "report", "report__exam")
         report_id = self.request.query_params.get("report")
