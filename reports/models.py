@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 class Tutor(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     full_name = models.CharField(max_length=100)
-    full_name_urdu = models.CharField(max_length=100, blank=True, null=True)  # ✅ New
+    full_name_urdu = models.CharField(max_length=100, blank=True, null=True)
     phone = models.CharField(max_length=15, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     bio = models.TextField(blank=True)
@@ -18,7 +18,7 @@ class Tutor(models.Model):
 
     class Meta:
         constraints = [
-            # enforce unique phone only when phone is not NULL
+            # Enforce unique phone only when provided
             models.UniqueConstraint(
                 fields=['phone'],
                 name='uniq_tutor_phone_when_present',
@@ -30,10 +30,11 @@ class Tutor(models.Model):
 class Student(models.Model):
     tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE, related_name='students')
     full_name = models.CharField(max_length=100)
-    full_name_urdu = models.CharField(max_length=100, blank=True, null=True)  # ✅ New
+    full_name_urdu = models.CharField(max_length=100, blank=True, null=True)
     gender = models.CharField(max_length=10, choices=[('Male', 'Male'), ('Female', 'Female')])
     grade_level = models.CharField(max_length=50)
     registration_date = models.DateField(auto_now_add=True)
+    # ✅ Correct: Many-to-many to Subject with reverse name "students"
     subjects = models.ManyToManyField('Subject', related_name='students', blank=True)
 
     def __str__(self):
@@ -42,9 +43,10 @@ class Student(models.Model):
 
 class Subject(models.Model):
     name = models.CharField(max_length=100)
-    name_urdu = models.CharField(max_length=100, blank=True, null=True)  # ✅ New
+    name_urdu = models.CharField(max_length=100, blank=True, null=True)
     category = models.CharField(max_length=50, blank=True, null=True)
-    subjects = models.ManyToManyField('Subject', related_name='students', blank=True)
+    # ❌ Removed the erroneous self ManyToMany:
+    # subjects = models.ManyToManyField('Subject', related_name='students', blank=True)
 
     def __str__(self):
         return self.name
@@ -98,12 +100,11 @@ class MessageLog(models.Model):
     def __str__(self):
         return f"{self.contact_type} to {self.student.full_name} at {self.timestamp}"
 
+
 class Feedback(models.Model):
     tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE)
     message = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
-    # add any other fields you want
 
     def __str__(self):
         return f"Feedback by {self.tutor.full_name} at {self.created_at}"
-
