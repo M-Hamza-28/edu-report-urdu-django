@@ -10,23 +10,21 @@ from .views import (
     MessageLogViewSet,
     FeedbackViewSet,
     ExamSessionViewSet,
-    StudentSessionViewSet,
-    MyViewSet
+    StudentSessionViewSet
 )
 
 # DRF router to auto-generate standard CRUD endpoints
 router = DefaultRouter()
-router.register(r'tutors', TutorViewSet)
-router.register(r'students', StudentViewSet)
-router.register(r'subjects', SubjectViewSet)
+router.register(r'tutors', TutorViewSet, basename= 'tutor')
+router.register(r'students', StudentViewSet, basename= 'student')
+router.register(r'subjects', SubjectViewSet, basename= 'subject')
 router.register(r'exams', ExamViewSet, basename='exam')
-router.register(r'my-things', MyViewSet, basename='my-thing')
-router.register(r'exam-sessions', ExamSessionViewSet)
-router.register(r'student-sessions', StudentSessionViewSet)
-router.register(r'reports', ReportViewSet)  # <--- This enables /api/reports/
-router.register(r'entries', PerformanceEntryViewSet)
-router.register(r'messages', MessageLogViewSet)
-router.register(r'feedback', FeedbackViewSet)
+router.register(r'exam-sessions', ExamSessionViewSet, basename='exam-session')
+router.register(r'student-sessions', StudentSessionViewSet, 'student-session')
+router.register(r'reports', ReportViewSet, 'report')  # <--- This enables /api/reports/
+router.register(r'entries', PerformanceEntryViewSet, 'entries')
+router.register(r'messages', MessageLogViewSet, 'messages')
+router.register(r'feedback', FeedbackViewSet, 'feedback')
 
 
 # Main urlpatterns - expose all endpoints under this app

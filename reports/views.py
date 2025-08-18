@@ -178,8 +178,3 @@ class FeedbackViewSet(viewsets.ModelViewSet):
     queryset = Feedback.objects.all().select_related("tutor")
     serializer_class = FeedbackSerializer
 
-
-class MyViewSet(viewsets.ModelViewSet):
-    # Keep a class-level queryset so DRF can infer a basename if needed
-    queryset = MyModel.objects.all()
-    serializer_class = MyModelSerializer
