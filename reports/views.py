@@ -55,19 +55,30 @@ class SubjectViewSet(viewsets.ModelViewSet):
         return qs.order_by("name")
 
 
+
 class ExamViewSet(viewsets.ModelViewSet):
+    """
+    Keep `.queryset` so DRF can auto-derive a basename.
+    We still override `get_queryset()` for runtime filtering.
+    """
+    queryset = Exam.objects.all()  # <-- IMPORTANT for DRF router
     serializer_class = ExamSerializer
 
     def get_queryset(self):
-        qs = Exam.objects.select_related('session')
-        student = self.request.query_params.get('student')
-        session = self.request.query_params.get('session')
-        if session:
-            qs = qs.filter(session_id=session)
-        if student:
-            # only exams in sessions the student is enrolled in
-            qs = qs.filter(session__enrollments__student_id=student)
-        return qs.order_by('date')
+        qs = super().get_queryset()
+        # If you're keeping Exam.session nullable, hide legacy nulls:
+        qs = qs.filter(session__isnull=False)
+
+        # Optional filters via query params
+        session_id = self.request.query_params.get("session")
+        exam_type = self.request.query_params.get("exam_type")
+
+        if session_id:
+            qs = qs.filter(session_id=session_id)
+        if exam_type:
+            qs = qs.filter(exam_type=exam_type)
+
+        return qs
 
 
 class ReportViewSet(viewsets.ModelViewSet):
@@ -166,3 +177,9 @@ class MessageLogViewSet(viewsets.ModelViewSet):
 class FeedbackViewSet(viewsets.ModelViewSet):
     queryset = Feedback.objects.all().select_related("tutor")
     serializer_class = FeedbackSerializer
+
+
+class MyViewSet(viewsets.ModelViewSet):
+    # Keep a class-level queryset so DRF can infer a basename if needed
+    queryset = MyModel.objects.all()
+    serializer_class = MyModelSerializer
