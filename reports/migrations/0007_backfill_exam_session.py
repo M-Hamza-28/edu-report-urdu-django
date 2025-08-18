@@ -34,7 +34,7 @@ def reverse_func(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('reports', '0007_backfill_exam_session.py'),
+        ('reports', '0006_examsession_exam_session_studentsession'),
     ]
     operations = [
         migrations.RunPython(backfill_exam_session, reverse_func),
