@@ -59,13 +59,6 @@ class Migration(migrations.Migration):
             ],
         ),
 
-        # If your original 0005 also added other fields, add them here (state ops).
-        # Example (uncomment & adjust only if you intended this in 0005):
-        migrations.RemoveField(
-            model_name="subject",
-            name="subjects",
-        ),
-
         migrations.AddField(
             model_name="student",
             name="subjects",
