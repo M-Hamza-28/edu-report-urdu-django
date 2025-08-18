@@ -68,10 +68,9 @@ class StudentSession(models.Model):
 class Exam(models.Model):
     name = models.CharField(max_length=100)
     exam_type = models.CharField(max_length=50)
-    # session = models.ForeignKey('ExamSession', on_delete=models.CASCADE, related_name='exams')
-    session = models.ForeignKey('AcademicSession', null=True, blank=True, on_delete=models.PROTECT)
+    session = models.ForeignKey('ExamSession', on_delete=models.CASCADE, related_name='exams')
     date = models.DateField()
-
+    
 
     def __str__(self):
         return f"{self.name} ({self.exam_type})"
