@@ -45,7 +45,7 @@ class Subject(models.Model):
 
     def __str__(self):
         return self.name
-    
+
 # NEW: logical bucket like "2025 Term-1"
 class ExamSession(models.Model):
     name = models.CharField(max_length=100)     # e.g., "2025 Term-1"
@@ -64,13 +64,16 @@ class StudentSession(models.Model):
     class Meta:
         unique_together = ('student', 'session')
 
-
 class Exam(models.Model):
     name = models.CharField(max_length=100)
     exam_type = models.CharField(max_length=50)
-    session = models.ForeignKey('ExamSession', on_delete=models.CASCADE, related_name='exams')
+
+    # OPTION A (Step 1): make this nullable FIRST so migrations apply without a default prompt.
+    # After backfilling in a data migration, set null=False/blank=False (Step 3).
+    session = models.ForeignKey('ExamSession', on_delete=models.CASCADE, related_name='exams',
+                                null=True, blank=True)
+
     date = models.DateField()
-    
 
     def __str__(self):
         return f"{self.name} ({self.exam_type})"
