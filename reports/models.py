@@ -45,10 +45,30 @@ class Subject(models.Model):
 
     def __str__(self):
         return self.name
+    
+# NEW: logical bucket like "2025 Term-1"
+class ExamSession(models.Model):
+    name = models.CharField(max_length=100)     # e.g., "2025 Term-1"
+    year = models.IntegerField(blank=True, null=True)
+    start_date = models.DateField(blank=True, null=True)
+    end_date = models.DateField(blank=True, null=True)
+
+    def __str__(self):
+        return self.name
+
+# NEW: enrollment of a student in a session
+class StudentSession(models.Model):
+    student = models.ForeignKey('Student', on_delete=models.CASCADE, related_name='enrollments')
+    session = models.ForeignKey('ExamSession', on_delete=models.CASCADE, related_name='enrollments')
+
+    class Meta:
+        unique_together = ('student', 'session')
+
 
 class Exam(models.Model):
     name = models.CharField(max_length=100)
     exam_type = models.CharField(max_length=50)
+    session = models.ForeignKey('ExamSession', on_delete=models.CASCADE, related_name='exams')
     date = models.DateField()
 
     def __str__(self):
