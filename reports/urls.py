@@ -8,7 +8,9 @@ from .views import (
     ReportViewSet,
     PerformanceEntryViewSet,
     MessageLogViewSet,
-    FeedbackViewSet
+    FeedbackViewSet,
+    ExamSessionViewSet,
+    StudentSessionViewSet
 )
 
 # DRF router to auto-generate standard CRUD endpoints
@@ -17,6 +19,8 @@ router.register(r'tutors', TutorViewSet)
 router.register(r'students', StudentViewSet)
 router.register(r'subjects', SubjectViewSet)
 router.register(r'exams', ExamViewSet)
+router.register(r'exam-sessions', ExamSessionViewSet)
+router.register(r'student-sessions', StudentSessionViewSet)
 router.register(r'reports', ReportViewSet)  # <--- This enables /api/reports/
 router.register(r'entries', PerformanceEntryViewSet)
 router.register(r'messages', MessageLogViewSet)

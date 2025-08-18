@@ -93,6 +93,16 @@ class ExamSerializer(serializers.ModelSerializer):
         model = Exam
         fields = '__all__'
 
+class ExamSessionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExamSession
+        fields = '__all__'
+
+class StudentSessionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StudentSession
+        fields = '__all__'
+
 
 class PerformanceEntrySerializer(serializers.ModelSerializer):
     percentage = serializers.ReadOnlyField()

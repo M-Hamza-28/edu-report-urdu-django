@@ -5,16 +5,33 @@ from django.http import HttpResponse, FileResponse
 from rest_framework.permissions import IsAuthenticated
 from .models import (
     Tutor, Student, Subject, Exam, Report,
-    PerformanceEntry, MessageLog, Feedback
+    PerformanceEntry, MessageLog, Feedback, ExamSession, StudentSession
 )
 from .serializers import (
     TutorSerializer, StudentSerializer, SubjectSerializer, ExamSerializer,
-    ReportSerializer, PerformanceEntrySerializer, MessageLogSerializer, FeedbackSerializer
+    ReportSerializer, PerformanceEntrySerializer, MessageLogSerializer, FeedbackSerializer, ExamSessionSerializer, StudentSessionSerializer
 )
 from .utils import generate_report_pdf
 import logging
 
 logger = logging.getLogger(__name__)
+
+class ExamSessionViewSet(viewsets.ModelViewSet):
+    queryset = ExamSession.objects.all().order_by('name')
+    serializer_class = ExamSessionSerializer
+
+    # optional filter: /api/exam-sessions/?student=<id>
+    def get_queryset(self):
+        qs = super().get_queryset()
+        student_id = self.request.query_params.get('student')
+        if student_id:
+            qs = qs.filter(enrollments__student_id=student_id).distinct()
+        return qs
+
+class StudentSessionViewSet(viewsets.ModelViewSet):
+    queryset = StudentSession.objects.select_related('student','session')
+    serializer_class = StudentSessionSerializer
+
 
 class TutorViewSet(viewsets.ModelViewSet):
     queryset = Tutor.objects.all().select_related("user")
@@ -39,8 +56,18 @@ class SubjectViewSet(viewsets.ModelViewSet):
 
 
 class ExamViewSet(viewsets.ModelViewSet):
-    queryset = Exam.objects.all()
     serializer_class = ExamSerializer
+
+    def get_queryset(self):
+        qs = Exam.objects.select_related('session')
+        student = self.request.query_params.get('student')
+        session = self.request.query_params.get('session')
+        if session:
+            qs = qs.filter(session_id=session)
+        if student:
+            # only exams in sessions the student is enrolled in
+            qs = qs.filter(session__enrollments__student_id=student)
+        return qs.order_by('date')
 
 
 class ReportViewSet(viewsets.ModelViewSet):
