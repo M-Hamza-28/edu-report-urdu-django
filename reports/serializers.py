@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import (
     Tutor, Student, Subject, Exam, Report,
-    PerformanceEntry, MessageLog, Feedback
+    PerformanceEntry, MessageLog, Feedback, ExamSession
 )
 
 class UserSerializer(serializers.ModelSerializer):
