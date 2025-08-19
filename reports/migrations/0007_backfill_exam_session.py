@@ -16,10 +16,10 @@ from django.db import migrations
 
 def backfill_exam_session(apps, schema_editor):
     Exam = apps.get_model('reports', 'Exam')
-    AcademicSession = apps.get_model('reports', 'AcademicSession')
+    ExamSession = apps.get_model('reports', 'ExamSession')
 
     # Use or create a baseline session to attach legacy exams
-    default_session, _ = AcademicSession.objects.get_or_create(
+    default_session, _ = ExamSession.objects.get_or_create(
         code='2025-26',  # keep a code field; see model below
         defaults={'name': 'Session 2025–2026', 'start_date':'2025-08-01', 'end_date':'2026-07-31'}
     )
