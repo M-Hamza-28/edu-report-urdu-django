@@ -59,7 +59,8 @@ class ExamSession(models.Model):
 # NEW: enrollment of a student in a session
 class StudentSession(models.Model):
     student = models.ForeignKey('Student', on_delete=models.CASCADE, related_name='enrollments')
-    session = models.ForeignKey('ExamSession', on_delete=models.CASCADE, related_name='enrollments')
+    session = models.ForeignKey('ExamSession', on_delete=models.CASCADE, related_name='exams', null=False, blank=False)
+
 
     class Meta:
         unique_together = ('student', 'session')
@@ -71,7 +72,7 @@ class Exam(models.Model):
     # OPTION A (Step 1): make this nullable FIRST so migrations apply without a default prompt.
     # After backfilling in a data migration, set null=False/blank=False (Step 3).
     session = models.ForeignKey('ExamSession', on_delete=models.CASCADE, related_name='exams',
-                                null=True, blank=True)
+                                null=False, blank=False)
 
     date = models.DateField()
 
