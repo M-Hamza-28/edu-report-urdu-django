@@ -72,7 +72,7 @@ class Exam(models.Model):
     # OPTION A (Step 1): make this nullable FIRST so migrations apply without a default prompt.
     # After backfilling in a data migration, set null=False/blank=False (Step 3).
     session = models.ForeignKey('ExamSession', on_delete=models.CASCADE, related_name='exams',
-                                null=False, blank=False)
+                                null=True, blank=True)
 
     date = models.DateField()
 
