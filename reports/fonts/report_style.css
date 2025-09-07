@@ -1,0 +1,20 @@
+/* Keep this CSS file and the TTF in the SAME folder:
+   static/reports/fonts/report_style.css
+   static/reports/fonts/NotoNastaliqUrdu-Regular.ttf
+*/
+
+@font-face {
+  font-family: "Noto Nastaliq Urdu";
+  src: url("NotoNastaliqUrdu-Regular.ttf") format("truetype"); /* relative path */
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;  /* better rendering behavior */
+}
+
+/* RTL layout + preferred font stack */
+html, body { direction: rtl; }
+body {
+  font-family: "Noto Nastaliq Urdu", "Noto Naskh Arabic", "DejaVu Sans", serif;
+}
+
+th, td { text-align: right; }

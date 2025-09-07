@@ -2,45 +2,114 @@
 {% load static %}
 {% load urdu_filters %}
 
-<html lang="{{ lang }}" dir="{% if lang == 'ur' %}rtl{% else %}ltr{% endif %}">
+<html lang="{{ lang|default:'en' }}" dir="{% if lang == 'ur' %}rtl{% else %}ltr{% endif %}">
 <head>
   <meta charset="UTF-8" />
-  <!-- Inline minimal base styles; main layout/RTL handled by utils-attached CSS files -->
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  {# --- Inline CSS so PDF/WeasyPrint renders without external dependencies --- #}
   {% if lang == 'ur' %}
   <style>
-    /* Ensure the Urdu font is available to WeasyPrint. Update the path if your static structure differs. */
+    /* Ensure the Urdu font is available to WeasyPrint (inline avoids collectstatic path issues). */
     @font-face {
       font-family: "Noto Nastaliq Urdu";
       src: url("{% static 'reports/fonts/NotoNastaliqUrdu-Regular.ttf' %}") format("truetype");
       font-weight: normal;
       font-style: normal;
+      font-display: swap;
     }
+
+    /* PDF page margins (WeasyPrint) */
+    @page { margin: 20mm; }
+
     html, body { direction: rtl; }
     body {
       font-family: "Noto Nastaliq Urdu", "Noto Naskh Arabic", "DejaVu Sans", serif;
       text-align: right;
       font-size: 14px;
-      padding: 40px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      font-variant-ligatures: contextual;
+      padding: 0;  /* page margin handled by @page */
+      margin: 0;
     }
-    h2 { font-size: 18px; margin-bottom: 10px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { padding: 8px 10px; border: 1px solid #aaa; text-align: right; }
+
+    h1, h2, h3, h4 { margin: 0 0 10px 0; }
+    h2 { font-size: 18px; }
+
+    .meta { margin: 8px 0; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+      table-layout: fixed;
+      word-break: break-word;
+    }
+    th, td {
+      padding: 8px 10px;
+      border: 1px solid #aaa;
+      text-align: right;
+      vertical-align: middle;
+    }
+    th {
+      background: #f3f3f3;
+      font-weight: 600;
+    }
+
+    .muted { color: #666; }
   </style>
   {% else %}
   <style>
+    /* PDF page margins (WeasyPrint) */
+    @page { margin: 20mm; }
+
     body {
-      font-family: "Inter", "DejaVu Sans", sans-serif;
+      font-family: "Inter", "DejaVu Sans", Arial, sans-serif;
       direction: ltr;
       text-align: left;
       font-size: 14px;
-      padding: 40px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      padding: 0;  /* page margin handled by @page */
+      margin: 0;
     }
-    h2 { font-size: 18px; margin-bottom: 10px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { padding: 8px 10px; border: 1px solid #aaa; text-align: left; }
+
+    h1, h2, h3, h4 { margin: 0 0 10px 0; }
+    h2 { font-size: 18px; }
+
+    .meta { margin: 8px 0; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+      table-layout: fixed;
+      word-break: break-word;
+    }
+    th, td {
+      padding: 8px 10px;
+      border: 1px solid #aaa;
+      text-align: left;
+      vertical-align: middle;
+    }
+    th {
+      background: #f3f3f3;
+      font-weight: 600;
+    }
+
+    .muted { color: #666; }
   </style>
   {% endif %}
+
+  {# If you later want to use an external CSS instead of inline, add this line:
+     <link rel="stylesheet" href="{% static 'reports/fonts/report_style.css' %}">
+     Make sure BOTH the CSS and TTF live in static/reports/fonts/ and the CSS uses a relative url('NotoNastaliqUrdu-Regular.ttf').
+  #}
 </head>
+
 <body>
   <h2>
     {% if lang == 'ur' %}
@@ -50,7 +119,7 @@
     {% endif %}
   </h2>
 
-  <p>
+  <p class="meta">
     {% if lang == 'ur' %}
       استاد: {{ report.tutor.full_name }}
     {% else %}
@@ -58,7 +127,7 @@
     {% endif %}
   </p>
 
-  <p>
+  <p class="meta">
     {% if lang == 'ur' %}
       امتحان: {{ exam_display }}
     {% else %}
@@ -66,7 +135,7 @@
     {% endif %}
   </p>
 
-  <p>
+  <p class="meta">
     {% if lang == 'ur' %}
       تاریخ: {{ report.report_date|convert_urdu_date }}
     {% else %}
@@ -75,7 +144,7 @@
   </p>
 
   {% if report.remarks %}
-    <p>
+    <p class="meta">
       {% if lang == 'ur' %}
         تبصرہ: {{ report.remarks }}
       {% else %}
@@ -107,6 +176,16 @@
           <td>{{ entry.total_marks }}</td>
           <td>{{ entry.percentage|floatformat:2 }}%</td>
         {% endif %}
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="4" class="muted">
+          {% if lang == 'ur' %}
+            اس رپورٹ کے لیے کارکردگی کے اندراجات موجود نہیں ہیں۔
+          {% else %}
+            No performance entries for this report.
+          {% endif %}
+        </td>
       </tr>
       {% endfor %}
     </tbody>
