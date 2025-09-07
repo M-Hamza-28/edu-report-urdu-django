@@ -66,7 +66,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "config.urls"  # <- change 'config' to your project package if different
+ROOT_URLCONF = "reporting_platform.urls"  # <- change 'reporting_platform' to your project package if different
 
 TEMPLATES = [
     {
@@ -84,7 +84,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "config.wsgi.application"  # <- change 'config' if your project package differs
+WSGI_APPLICATION = "reporting_platform.wsgi.application"  # <- change 'reporting_platform' if your project package differs
 
 # ---------------------------
 # Database (Render + SSL)
