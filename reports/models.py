@@ -2,6 +2,10 @@ from django.db import models
 from django.db.models import Q
 from django.contrib.auth.models import User
 
+
+# =========================
+# Core: Tutor / Student / Subject
+# =========================
 class Tutor(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     full_name = models.CharField(max_length=100)
@@ -13,10 +17,11 @@ class Tutor(models.Model):
     location = models.CharField(max_length=255, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.full_name
 
     class Meta:
+        # Optional phone; if provided and non-empty, must be unique
         constraints = [
             models.UniqueConstraint(
                 fields=['phone'],
@@ -25,6 +30,7 @@ class Tutor(models.Model):
             )
         ]
 
+
 class Student(models.Model):
     tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE, related_name='students')
     full_name = models.CharField(max_length=100)
@@ -32,53 +38,83 @@ class Student(models.Model):
     gender = models.CharField(max_length=10, choices=[('Male', 'Male'), ('Female', 'Female')])
     grade_level = models.CharField(max_length=50)
     registration_date = models.DateField(auto_now_add=True)
+    # Subjects allocated per student (used by UI to filter subjects)
     subjects = models.ManyToManyField('Subject', related_name='students', blank=True)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.full_name
+
 
 class Subject(models.Model):
     name = models.CharField(max_length=100)
     name_urdu = models.CharField(max_length=100, blank=True, null=True)
     category = models.CharField(max_length=50, blank=True, null=True)
-    # ⛔️ removed: subjects = models.ManyToManyField('Subject', related_name='students', blank=True)
+    # NOTE: do NOT add a self-referencing M2M here; it caused earlier clashes.
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
-# NEW: logical bucket like "2025 Term-1"
+
+# =========================
+# Sessions / Enrollment / Exams
+# =========================
 class ExamSession(models.Model):
-    name = models.CharField(max_length=100)     # e.g., "2025 Term-1"
+    """
+    Logical bucket like '2025 Term-1' / '2025 Term-2'.
+    Students enroll into sessions; exams are created under a session.
+    """
+    name = models.CharField(max_length=100)
     year = models.IntegerField(blank=True, null=True)
     start_date = models.DateField(blank=True, null=True)
     end_date = models.DateField(blank=True, null=True)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
-# NEW: enrollment of a student in a session
-class StudentSession(models.Model):
-    student = models.ForeignKey('Student', on_delete=models.CASCADE, related_name='enrollments')
-    session = models.ForeignKey('ExamSession', on_delete=models.CASCADE, related_name='exams', null=False, blank=False)
 
+class StudentSession(models.Model):
+    """
+    Enrollment of a student into a session.
+    Reverse name on ExamSession is 'enrollments' (distinct from 'exams').
+    """
+    student = models.ForeignKey('Student', on_delete=models.CASCADE, related_name='enrollments')
+    session = models.ForeignKey(
+        'ExamSession',
+        on_delete=models.CASCADE,
+        related_name='enrollments',        # IMPORTANT: not 'exams'
+        related_query_name='enrollment',
+    )
 
     class Meta:
         unique_together = ('student', 'session')
 
+    def __str__(self) -> str:
+        return f"{self.student} @ {self.session}"
+
+
 class Exam(models.Model):
-    name = models.CharField(max_length=100)
-    exam_type = models.CharField(max_length=50)
-
-    # OPTION A (Step 1): make this nullable FIRST so migrations apply without a default prompt.
-    # After backfilling in a data migration, set null=False/blank=False (Step 3).
-    session = models.ForeignKey('ExamSession', on_delete=models.CASCADE, related_name='exams',
-                                null=True, blank=True)
-
+    """
+    Each Exam belongs to EXACTLY ONE ExamSession.
+    UI flow: Student → Session → Exam Type
+    """
+    name = models.CharField(max_length=100)         # optional for legacy display
+    exam_type = models.CharField(max_length=50)     # shown in UI dropdowns
+    session = models.ForeignKey(
+        'ExamSession',
+        on_delete=models.CASCADE,
+        related_name='exams',                        # distinct from StudentSession.session
+        related_query_name='exam',
+        null=False, blank=False                      # Option 1: enforce non-null
+    )
     date = models.DateField()
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.name} ({self.exam_type})"
 
+
+# =========================
+# Reports / Performance / Logs
+# =========================
 class Report(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='reports')
     tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE)
@@ -87,8 +123,9 @@ class Report(models.Model):
     report_date = models.DateField(auto_now_add=True)
     pdf_file = models.FileField(upload_to='reports/', null=True, blank=True)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Report for {self.student.full_name} - {self.exam.name}"
+
 
 class PerformanceEntry(models.Model):
     report = models.ForeignKey(Report, on_delete=models.CASCADE, related_name='entries')
@@ -97,14 +134,15 @@ class PerformanceEntry(models.Model):
     total_marks = models.FloatField()
 
     class Meta:
-        unique_together = ('report', 'subject')
+        unique_together = ('report', 'subject')  # prevent duplicate subject rows per report
 
     @property
-    def percentage(self):
+    def percentage(self) -> float:
         return (self.marks_obtained / self.total_marks) * 100 if self.total_marks else 0
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.subject.name} - {self.marks_obtained}/{self.total_marks}"
+
 
 class MessageLog(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
@@ -113,13 +151,14 @@ class MessageLog(models.Model):
     message = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.contact_type} to {self.student.full_name} at {self.timestamp}"
+
 
 class Feedback(models.Model):
     tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE)
     message = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Feedback by {self.tutor.full_name} at {self.created_at}"
