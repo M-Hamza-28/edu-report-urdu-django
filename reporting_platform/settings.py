@@ -2,6 +2,7 @@
 from pathlib import Path
 import os
 import dj_database_url  # used to parse DATABASE_URL and force SSL
+import certifi  # <— NEW: provides a CA bundle for TLS verification
 
 # ---------------------------
 # Core
@@ -94,28 +95,41 @@ WSGI_APPLICATION = "reporting_platform.wsgi.application"
 ASGI_APPLICATION = "reporting_platform.asgi.application"
 
 # ---------------------------
-# Database (Render + SSL in code)
+# Database (Render Postgres with enforced SSL)
 # ---------------------------
-# Paste the External Database URL from your Render Postgres into the Web Service
-# environment as DATABASE_URL (copy EXACTLY; do not edit the DB page).
-#
-# We’ll *force* SSL here with ssl_require=True, so even if the URL doesn’t
-# include ?sslmode=require, TLS is still enforced.
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Local/dev fallback (or when DATABASE_URL is absent)
 DATABASES = {
     "default": {
-        # Local/dev fallback when no DATABASE_URL is set:
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": BASE_DIR / "db.sqlite3",
     }
 }
 
-DATABASE_URL = os.environ.get("DATABASE_URL")
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()  # strip to avoid trailing spaces
 if DATABASE_URL:
-    DATABASES["default"] = dj_database_url.parse(
+    # Parse URL and create a Postgres config
+    db_cfg = dj_database_url.parse(
         DATABASE_URL,
-        conn_max_age=600,   # keep connections pooled
-        ssl_require=True,   # 🔒 critical: enforce TLS to managed Postgres
+        conn_max_age=600,  # keep connections pooled
+        ssl_require=False  # we'll set SSL options explicitly below
     )
+
+    # Ensure SSL with a CA bundle — this avoids handshake closes on some hosts
+    opts = db_cfg.get("OPTIONS", {})
+    # Option 1 (usually enough): require TLS without hostname verification
+    opts["sslmode"] = opts.get("sslmode", "require")
+    opts["sslrootcert"] = opts.get("sslrootcert", certifi.where())
+
+    # If you still see "SSL connection has been closed unexpectedly",
+    # try STRICT verification instead of plain "require":
+    # opts["sslmode"] = "verify-full"   # <= uncomment to enforce hostname verification
+    # opts["sslrootcert"] = certifi.where()
+
+    db_cfg["OPTIONS"] = opts
+    DATABASES["default"] = db_cfg
 
 # ---------------------------
 # Internationalization / TZ
