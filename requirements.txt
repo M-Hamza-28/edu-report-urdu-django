@@ -4,10 +4,12 @@ Brotli==1.1.0
 cffi==1.17.1
 charset-normalizer==3.4.2
 cssselect2==0.8.0
+certifi>=2024.8.30
 dj-database-url==3.0.1
 Django==5.2.4
 django-cors-headers==4.7.0
 djangorestframework==3.16.0
+djangorestframework-simplejwt
 fonttools==4.59.0
 gunicorn==23.0.0
 packaging==25.0
@@ -26,4 +28,3 @@ weasyprint==66.0
 webencodings==0.5.1
 zopfli==0.2.3.post1
 whitenoise==6.6.0
-djangorestframework-simplejwt
