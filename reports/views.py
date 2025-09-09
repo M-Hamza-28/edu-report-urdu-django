@@ -9,7 +9,8 @@ from .models import (
 )
 from .serializers import (
     TutorSerializer, StudentSerializer, SubjectSerializer, ExamSerializer,
-    ReportSerializer, PerformanceEntrySerializer, MessageLogSerializer, FeedbackSerializer, ExamSessionSerializer, StudentSessionSerializer
+    ReportSerializer, PerformanceEntrySerializer, MessageLogSerializer, FeedbackSerializer,
+    ExamSessionSerializer, StudentSessionSerializer
 )
 from .utils import generate_report_pdf
 import logging
@@ -17,7 +18,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class ExamSessionViewSet(viewsets.ModelViewSet):
-    queryset = ExamSession.objects.all().order_by('name')
+    queryset = ExamSession.objects.all().order_by('name')  # returns ALL sessions (old + new)
     serializer_class = ExamSessionSerializer
 
     # optional filter: /api/exam-sessions/?student=<id>
@@ -28,8 +29,9 @@ class ExamSessionViewSet(viewsets.ModelViewSet):
             qs = qs.filter(enrollments__student_id=student_id).distinct()
         return qs
 
+
 class StudentSessionViewSet(viewsets.ModelViewSet):
-    queryset = StudentSession.objects.select_related('student','session')
+    queryset = StudentSession.objects.select_related('student', 'session')
     serializer_class = StudentSessionSerializer
 
 
@@ -45,29 +47,25 @@ class StudentViewSet(viewsets.ModelViewSet):
 
 class SubjectViewSet(viewsets.ModelViewSet):
     serializer_class = SubjectSerializer
-    queryset = Subject.objects.all() 
+    queryset = Subject.objects.all()
 
     def get_queryset(self):
         qs = Subject.objects.all()
         student_id = self.request.query_params.get("student")
         if student_id:
-            qs = qs.filter(students__id=student_id)  # ← ONLY subjects linked to that student
+            qs = qs.filter(students__id=student_id)  # ONLY subjects linked to that student
         return qs.order_by("name")
-
 
 
 class ExamViewSet(viewsets.ModelViewSet):
     """
-    Keep `.queryset` so DRF can auto-derive a basename.
-    We still override `get_queryset()` for runtime filtering.
+    Term-based Exams.
     """
-    queryset = Exam.objects.all()  # <-- IMPORTANT for DRF router
+    queryset = Exam.objects.all()               # needed for DRF basename
     serializer_class = ExamSerializer
 
     def get_queryset(self):
-        qs = super().get_queryset()
-        # If you're keeping Exam.session nullable, hide legacy nulls:
-        qs = qs.filter(session__isnull=False)
+        qs = super().get_queryset().filter(session__isnull=False)
 
         # Optional filters via query params
         session_id = self.request.query_params.get("session")
@@ -78,7 +76,8 @@ class ExamViewSet(viewsets.ModelViewSet):
         if exam_type:
             qs = qs.filter(exam_type=exam_type)
 
-        return qs
+        # Show newest created first (or change to .order_by('id') if you prefer)
+        return qs.order_by("-id")
 
 
 class ReportViewSet(viewsets.ModelViewSet):
@@ -93,7 +92,6 @@ class ReportViewSet(viewsets.ModelViewSet):
         lang_map = {'en': 'en', 'eng': 'en', 'english': 'en', 'ur': 'ur', 'urdu': 'ur'}
         lang = lang_map.get(raw, 'en')
 
-        # Ensure report exists (respects queryset filters/permissions)
         try:
             self.get_object()
         except Exception as e:
@@ -106,7 +104,6 @@ class ReportViewSet(viewsets.ModelViewSet):
             logger.exception("PDF generation failed for report=%s lang=%s", pk, lang)
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        # Wrap bytes with language-aware headers and cache-busting filename
         resp = HttpResponse(pdf_bytes, content_type='application/pdf')
         resp['Content-Disposition'] = f'attachment; filename="report_{pk}_{lang}.pdf"'
         resp['Content-Language'] = lang
@@ -120,15 +117,15 @@ class ReportViewSet(viewsets.ModelViewSet):
             PerformanceEntry.objects
             .filter(report__student__id=student_id)
             .select_related("report__exam", "subject")
-            .order_by("report__exam__date", "subject__name")
+            .order_by("report__exam__date", "subject__name")  # date may be null; that's fine
         )
         data = {}
         for entry in entries:
             subject = entry.subject.name
             data.setdefault(subject, []).append({
-                'exam': entry.report.exam.name,
-                'exam_type': entry.report.exam.exam_type,   # <- include type
-                'date': entry.report.exam.date,
+                'exam': entry.report.exam.name,          # this is the Term
+                'exam_type': entry.report.exam.exam_type,
+                'date': entry.report.exam.date,          # can be null
                 'marks_obtained': entry.marks_obtained,
                 'total_marks': entry.total_marks,
                 'percentage': entry.percentage,
@@ -161,13 +158,14 @@ class ReportViewSet(viewsets.ModelViewSet):
 class PerformanceEntryViewSet(viewsets.ModelViewSet):
     serializer_class = PerformanceEntrySerializer
     queryset = PerformanceEntry.objects.select_related("subject", "report", "report__exam")
-    
+
     def get_queryset(self):
         qs = PerformanceEntry.objects.select_related("subject", "report", "report__exam")
         report_id = self.request.query_params.get("report")
         if report_id:
-            qs = qs.filter(report_id=report_id)      # ← ONLY entries for this report
+            qs = qs.filter(report_id=report_id)
         return qs.order_by("id")
+
 
 class MessageLogViewSet(viewsets.ModelViewSet):
     queryset = MessageLog.objects.all().select_related("student")
@@ -177,4 +175,3 @@ class MessageLogViewSet(viewsets.ModelViewSet):
 class FeedbackViewSet(viewsets.ModelViewSet):
     queryset = Feedback.objects.all().select_related("tutor")
     serializer_class = FeedbackSerializer
-

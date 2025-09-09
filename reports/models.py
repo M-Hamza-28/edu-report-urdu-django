@@ -49,7 +49,6 @@ class Subject(models.Model):
     name = models.CharField(max_length=100)
     name_urdu = models.CharField(max_length=100, blank=True, null=True)
     category = models.CharField(max_length=50, blank=True, null=True)
-    # NOTE: do NOT add a self-referencing M2M here; it caused earlier clashes.
 
     def __str__(self) -> str:
         return self.name
@@ -81,7 +80,7 @@ class StudentSession(models.Model):
     session = models.ForeignKey(
         'ExamSession',
         on_delete=models.CASCADE,
-        related_name='enrollments',        # IMPORTANT: not 'exams'
+        related_name='enrollments',
         related_query_name='enrollment',
     )
 
@@ -95,18 +94,20 @@ class StudentSession(models.Model):
 class Exam(models.Model):
     """
     Each Exam belongs to EXACTLY ONE ExamSession.
-    UI flow: Student → Session → Exam Type
+    UI now uses a 'Term' dropdown ('1st Term' | '2nd Term').
+    We keep the DB column as `name` for compatibility, but treat it as the 'term' label.
     """
-    name = models.CharField(max_length=100)         # optional for legacy display
-    exam_type = models.CharField(max_length=50)     # shown in UI dropdowns
+    name = models.CharField(max_length=100, verbose_name="term")   # stores '1st Term' / '2nd Term'
+    exam_type = models.CharField(max_length=50)                    # e.g. 'Mid-Term', 'Final'
     session = models.ForeignKey(
         'ExamSession',
         on_delete=models.CASCADE,
-        related_name='exams',                        # distinct from StudentSession.session
+        related_name='exams',
         related_query_name='exam',
-        null=False, blank=False                      # Option 1: enforce non-null
+        null=False, blank=False
     )
-    date = models.DateField()
+    # Date is now OPTIONAL so the new UI (which omits it) doesn't fail
+    date = models.DateField(blank=True, null=True)
 
     def __str__(self) -> str:
         return f"{self.name} ({self.exam_type})"
@@ -134,7 +135,7 @@ class PerformanceEntry(models.Model):
     total_marks = models.FloatField()
 
     class Meta:
-        unique_together = ('report', 'subject')  # prevent duplicate subject rows per report
+        unique_together = ('report', 'subject')
 
     @property
     def percentage(self) -> float:

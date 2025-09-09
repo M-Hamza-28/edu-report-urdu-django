@@ -2,22 +2,18 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import (
     Tutor, Student, Subject, Exam, Report,
-    PerformanceEntry, MessageLog, Feedback, ExamSession, StudentSession, 
+    PerformanceEntry, MessageLog, Feedback, ExamSession, StudentSession,
 )
 
+# -------- User / Tutor / Student / Subject (unchanged) --------
+
 class UserSerializer(serializers.ModelSerializer):
-    """Serializer for Django's built-in User model."""
     class Meta:
         model = User
         fields = ['id', 'username', 'email']
 
 
 class TutorSerializer(serializers.ModelSerializer):
-    """
-    Serializer for Tutor.
-    - Accepts optional nested "user" (dict) to create/link a User.
-    - Ensures phone is unique if provided.
-    """
     user = serializers.DictField(write_only=True, required=False)
 
     class Meta:
@@ -30,7 +26,6 @@ class TutorSerializer(serializers.ModelSerializer):
         }
 
     def validate_phone(self, value):
-        # Optional phone; if provided, enforce uniqueness (excluding self on update)
         if value:
             qs = Tutor.objects.filter(phone=value)
             if self.instance:
@@ -41,16 +36,13 @@ class TutorSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user_data = validated_data.pop("user", None)
-
         base = (validated_data.get("full_name") or "tutor").lower().replace(" ", "")
         suffix = User.objects.count() + 1
 
-        # default email/location if missing
         email = validated_data.get("email") or f"{base}{suffix}@example.com"
         validated_data.setdefault("email", email)
         validated_data.setdefault("location", "Unknown")
 
-        # derive username/email from nested user (if present) or defaults
         if user_data:
             username = user_data.get("username") or f"{base}{suffix}"
             user_email = user_data.get("email") or email
@@ -67,7 +59,6 @@ class TutorSerializer(serializers.ModelSerializer):
 
 
 class StudentSerializer(serializers.ModelSerializer):
-    # accept "M/F/male/female" and normalize to "Male"/"Female"
     gender = serializers.CharField()
 
     class Meta:
@@ -88,21 +79,61 @@ class SubjectSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+# ---------------- Exams (Term-based) ----------------
+
 class ExamSerializer(serializers.ModelSerializer):
+    """
+    Expose 'term' instead of 'name' to the frontend and accept either:
+      - term: '1st Term' | '2nd Term'
+      - (back-compat) name: same values
+    Date is optional — frontend does not send it.
+    """
+    term = serializers.CharField(source='name', required=True)
+    date = serializers.DateField(required=False, allow_null=True)
+
     class Meta:
         model = Exam
-        fields = '__all__'
+        fields = ['id', 'term', 'exam_type', 'session', 'date']  # 'name' hidden on purpose
+
+    def validate_term(self, value):
+        """
+        Normalize/validate common inputs, e.g. 'Term 1' -> '1st Term', 'Term 2' -> '2nd Term'.
+        """
+        raw = (value or "").strip()
+        normalized = {
+            "term 1": "1st Term",
+            "1st term": "1st Term",
+            "first term": "1st Term",
+            "term 2": "2nd Term",
+            "2nd term": "2nd Term",
+            "second term": "2nd Term",
+        }.get(raw.lower(), raw)
+
+        if normalized not in {"1st Term", "2nd Term"}:
+            raise serializers.ValidationError("Term must be '1st Term' or '2nd Term'.")
+        return normalized
+
+    # Back-compat: if someone posts {"name": "..."} instead of {"term": "..."}
+    def to_internal_value(self, data):
+        if 'term' not in data and 'name' in data:
+            data = dict(data)  # copy
+            data['term'] = data['name']
+        return super().to_internal_value(data)
+
 
 class ExamSessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExamSession
         fields = '__all__'
 
+
 class StudentSessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudentSession
         fields = '__all__'
 
+
+# ---------------- Performance / Reports / Logs ----------------
 
 class PerformanceEntrySerializer(serializers.ModelSerializer):
     percentage = serializers.ReadOnlyField()
@@ -117,14 +148,14 @@ class ReportSerializer(serializers.ModelSerializer):
     """
     Report:
     - Includes read-only 'entries'
-    - Convenience read-only fields for student/exam/tutor names and exam_type
+    - Convenience read-only fields for student/exam/tutor names and exam_type/date
     """
     entries = PerformanceEntrySerializer(many=True, read_only=True)
     student_name = serializers.CharField(source='student.full_name', read_only=True)
     tutor_name = serializers.CharField(source='tutor.full_name', read_only=True)
     exam_name = serializers.CharField(source='exam.name', read_only=True)
     exam_type = serializers.CharField(source='exam.exam_type', read_only=True)
-    exam_date = serializers.DateField(source='exam.date', read_only=True)
+    exam_date = serializers.DateField(source='exam.date', read_only=True, allow_null=True)
 
     class Meta:
         model = Report
