@@ -2,6 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.http import HttpResponse, FileResponse
+from django.core.exceptions import FieldError
 from rest_framework.permissions import IsAuthenticated
 from .models import (
     Tutor, Student, Subject, Exam, Report,
@@ -18,15 +19,32 @@ import logging
 logger = logging.getLogger(__name__)
 
 class ExamSessionViewSet(viewsets.ModelViewSet):
-    queryset = ExamSession.objects.all().order_by('name')  # returns ALL sessions (old + new)
+    queryset = ExamSession.objects.all().order_by('name')
     serializer_class = ExamSessionSerializer
 
-    # optional filter: /api/exam-sessions/?student=<id>
+    # /api/exam-sessions/?student=<id>
     def get_queryset(self):
         qs = super().get_queryset()
         student_id = self.request.query_params.get('student')
+
         if student_id:
-            qs = qs.filter(enrollments__student_id=student_id).distinct()
+            # be defensive about the type
+            try:
+                sid = int(student_id)
+            except (TypeError, ValueError):
+                return qs.none()
+
+            # try the explicit related_name first…
+            try:
+                qs = qs.filter(enrollments__student_id=sid).distinct()
+            except FieldError:
+                # …fall back to default related_query_name if related_name differs
+                # (e.g., studentsession or studentsession_set)
+                try:
+                    qs = qs.filter(studentsession__student_id=sid).distinct()
+                except FieldError:
+                    qs = qs.filter(studentsession_set__student_id=sid).distinct()
+
         return qs
 
 
