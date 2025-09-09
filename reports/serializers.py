@@ -5,7 +5,7 @@ from .models import (
     PerformanceEntry, MessageLog, Feedback, ExamSession, StudentSession,
 )
 
-# -------- User / Tutor / Student / Subject (unchanged) --------
+# ---------------- Users / Tutors / Students ----------------
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -79,26 +79,62 @@ class SubjectSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+# ---------------- Sessions ----------------
+
+class ExamSessionSerializer(serializers.ModelSerializer):
+    """
+    Adds a computed 'label' like 'Session 2025-2026'.
+    Uses (start_date → end_date) if available; else uses 'year' (year → year+1);
+    else falls back to 'name' or 'Session <id>'.
+    """
+    label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ExamSession
+        fields = ['id', 'name', 'year', 'start_date', 'end_date', 'label']
+
+    def get_label(self, obj):
+        # Prefer explicit dates if present
+        if obj.start_date:
+            y1 = obj.start_date.year
+            y2 = obj.end_date.year if obj.end_date else (y1 + 1)
+            return f"Session {y1}-{y2}"
+        # Fall back to year range
+        if obj.year:
+            return f"Session {obj.year}-{obj.year + 1}"
+        # Otherwise try name; prefix if needed
+        if obj.name:
+            nm = obj.name.strip()
+            return nm if nm.lower().startswith("session") else f"Session {nm}"
+        # Final fallback
+        return f"Session {obj.id}"
+
+
+class StudentSessionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StudentSession
+        fields = '__all__'
+
+
 # ---------------- Exams (Term-based) ----------------
 
 class ExamSerializer(serializers.ModelSerializer):
     """
-    Expose 'term' instead of 'name' to the frontend and accept either:
-      - term: '1st Term' | '2nd Term'
-      - (back-compat) name: same values
-    Date is optional — frontend does not send it.
+    Expose 'term' instead of the DB field 'name'.
+    Include both:
+      - 'session' (write with id)
+      - 'session_info' (read with full object incl. label)
     """
     term = serializers.CharField(source='name', required=True)
     date = serializers.DateField(required=False, allow_null=True)
+    session = serializers.PrimaryKeyRelatedField(queryset=ExamSession.objects.all())
+    session_info = ExamSessionSerializer(source='session', read_only=True)
 
     class Meta:
         model = Exam
-        fields = ['id', 'term', 'exam_type', 'session', 'date']  # 'name' hidden on purpose
+        fields = ['id', 'term', 'exam_type', 'session', 'session_info', 'date']
 
     def validate_term(self, value):
-        """
-        Normalize/validate common inputs, e.g. 'Term 1' -> '1st Term', 'Term 2' -> '2nd Term'.
-        """
         raw = (value or "").strip()
         normalized = {
             "term 1": "1st Term",
@@ -108,29 +144,16 @@ class ExamSerializer(serializers.ModelSerializer):
             "2nd term": "2nd Term",
             "second term": "2nd Term",
         }.get(raw.lower(), raw)
-
         if normalized not in {"1st Term", "2nd Term"}:
             raise serializers.ValidationError("Term must be '1st Term' or '2nd Term'.")
         return normalized
 
-    # Back-compat: if someone posts {"name": "..."} instead of {"term": "..."}
     def to_internal_value(self, data):
+        # Back-compat if someone posts {"name": "..."} instead of {"term": "..."}
         if 'term' not in data and 'name' in data:
-            data = dict(data)  # copy
+            data = dict(data)
             data['term'] = data['name']
         return super().to_internal_value(data)
-
-
-class ExamSessionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ExamSession
-        fields = '__all__'
-
-
-class StudentSessionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = StudentSession
-        fields = '__all__'
 
 
 # ---------------- Performance / Reports / Logs ----------------
@@ -145,11 +168,6 @@ class PerformanceEntrySerializer(serializers.ModelSerializer):
 
 
 class ReportSerializer(serializers.ModelSerializer):
-    """
-    Report:
-    - Includes read-only 'entries'
-    - Convenience read-only fields for student/exam/tutor names and exam_type/date
-    """
     entries = PerformanceEntrySerializer(many=True, read_only=True)
     student_name = serializers.CharField(source='student.full_name', read_only=True)
     tutor_name = serializers.CharField(source='tutor.full_name', read_only=True)
