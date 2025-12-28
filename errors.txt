@@ -1,0 +1,51 @@
+
+PS C:\Users\hp\OneDrive\Documents\GitHub\reporting-frontend\reporting-frontend> # DEBUG=true or E2E_ONLY=1 when starting Django
+PS C:\Users\hp\OneDrive\Documents\GitHub\reporting-frontend\reporting-frontend> npx playwright test e2e/api.debug-tools.spec.js --project=chromium
+
+Running 2 tests using 2 workers
+
+  ✓  1 [chromium] › e2e\api.debug-tools.spec.js:15:7 › DEBUG helpers › notify-send validates payload and echoes (504ms)   ✓  2 [chromium] › e2e\api.debug-tools.spec.js:7:7 › DEBUG helpers › test/reset exists in DEBUG (672ms)
+
+  2 passed (8.4s)
+
+To open last HTML report run:
+
+  npx playwright show-report
+
+PS C:\Users\hp\OneDrive\Documents\GitHub\reporting-frontend\reporting-frontend> npx playwright test e2e/api.reports.branding-effects.spec.js --project=chromium
+
+Running 1 test using 1 worker
+
+  ✘  1 [chromium] › e2e\api.reports.branding-effects.spec.js:10:5 › report preview reflects saved branding URLs (740ms)
+
+
+  1) [chromium] › e2e\api.reports.branding-effects.spec.js:10:5 › report preview reflects saved branding URLs
+
+    Error: expect(received).toMatch(expected)
+
+    Expected pattern: /pdf|application\/octet-stream/i
+    Received string:  "application/json"
+
+      37 |   // Some servers set application/pdf, others application/octet-stream; accept both.
+      38 |   const ctype = pdfRes.headers()["content-type"] || "";
+    > 39 |   expect(ctype).toMatch(/pdf|application\/octet-stream/i);
+         |                 ^
+      40 |
+      41 | });
+      42 |
+        at C:\Users\hp\OneDrive\Documents\GitHub\reporting-frontend\reporting-frontend\e2e\api.reports.branding-effects.spec.js:39:17
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\api.reports.branding-effec-f2bd1-eflects-saved-branding-URLs-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\api.reports.branding-effec-f2bd1-eflects-saved-branding-URLs-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [chromium] › e2e\api.reports.branding-effects.spec.js:10:5 › report preview reflects saved branding URLs
+
+To open last HTML report run:
+
+  npx playwright show-report

@@ -2,15 +2,20 @@
 {% load static %}
 {% load urdu_filters %}
 
+{# 
+  Single bilingual template for both EN + UR. 
+  Pass ?lang=ur to render RTL with Nastaliq.
+#}
 <html lang="{{ lang|default:'en' }}" dir="{% if lang == 'ur' %}rtl{% else %}ltr{% endif %}">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  {# --- Inline CSS so PDF/WeasyPrint renders without external dependencies --- #}
-  {% if lang == 'ur' %}
   <style>
-    /* Ensure the Urdu font is available to WeasyPrint (inline avoids collectstatic path issues). */
+    @page { margin: 20mm; }
+
+    /* Urdu font only when RTL is requested (WeasyPrint supports @font-face) */
+    {% if lang == 'ur' %}
     @font-face {
       font-family: "Noto Nastaliq Urdu";
       src: url("{% static 'reports/fonts/NotoNastaliqUrdu-Regular.ttf' %}") format("truetype");
@@ -18,123 +23,102 @@
       font-style: normal;
       font-display: swap;
     }
+    {% endif %}
 
-    /* PDF page margins (WeasyPrint) */
-    @page { margin: 20mm; }
+    /* Base */
+    html, body {
+      padding: 0;
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
 
-    html, body { direction: rtl; }
-    body {
+    /* Direction-aware typography */
+    html[dir="ltr"] body {
+      font-family: "Inter", "DejaVu Sans", Arial, sans-serif;
+      text-align: left;
+    }
+    html[dir="rtl"] body {
       font-family: "Noto Nastaliq Urdu", "Noto Naskh Arabic", "DejaVu Sans", serif;
       text-align: right;
-      font-size: 14px;
-      line-height: 1.5;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
       font-variant-ligatures: contextual;
-      padding: 0;  /* page margin handled by @page */
-      margin: 0;
     }
 
     h1, h2, h3, h4 { margin: 0 0 10px 0; }
     h2 { font-size: 18px; }
 
     .meta { margin: 8px 0; }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 16px;
-      table-layout: fixed;
-      word-break: break-word;
-    }
-    th, td {
-      padding: 8px 10px;
-      border: 1px solid #aaa;
-      text-align: right;
-      vertical-align: middle;
-    }
-    th {
-      background: #f3f3f3;
-      font-weight: 600;
-    }
-
     .muted { color: #666; }
+
+    table { 
+      width: 100%; 
+      border-collapse: collapse; 
+      margin-top: 16px; 
+      table-layout: fixed; 
+      word-break: break-word; 
+    }
+    th, td { 
+      padding: 8px 10px; 
+      border: 1px solid #aaa; 
+      vertical-align: middle; 
+    }
+    html[dir="ltr"] th, html[dir="ltr"] td { text-align: left; }
+    html[dir="rtl"] th, html[dir="rtl"] td { text-align: right; }
+
+    th { background: #f3f3f3; font-weight: 600; }
   </style>
-  {% else %}
-  <style>
-    /* PDF page margins (WeasyPrint) */
-    @page { margin: 20mm; }
-
-    body {
-      font-family: "Inter", "DejaVu Sans", Arial, sans-serif;
-      direction: ltr;
-      text-align: left;
-      font-size: 14px;
-      line-height: 1.5;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-      padding: 0;  /* page margin handled by @page */
-      margin: 0;
-    }
-
-    h1, h2, h3, h4 { margin: 0 0 10px 0; }
-    h2 { font-size: 18px; }
-
-    .meta { margin: 8px 0; }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 16px;
-      table-layout: fixed;
-      word-break: break-word;
-    }
-    th, td {
-      padding: 8px 10px;
-      border: 1px solid #aaa;
-      text-align: left;
-      vertical-align: middle;
-    }
-    th {
-      background: #f3f3f3;
-      font-weight: 600;
-    }
-
-    .muted { color: #666; }
-  </style>
-  {% endif %}
-
-  {# If you later want to use an external CSS instead of inline, add this line:
-     <link rel="stylesheet" href="{% static 'reports/fonts/report_style.css' %}">
-     Make sure BOTH the CSS and TTF live in static/reports/fonts/ and the CSS uses a relative url('NotoNastaliqUrdu-Regular.ttf').
-  #}
 </head>
 
 <body>
   <h2>
     {% if lang == 'ur' %}
-      رپورٹ برائے {{ report.student.full_name }}
+      {{ "Report"|report_label }} برائے
+      {{ report.student.full_name_ur|default:report.student.full_name }}
     {% else %}
       Report for {{ report.student.full_name }}
     {% endif %}
   </h2>
 
+  <!-- Tutor -->
   <p class="meta">
     {% if lang == 'ur' %}
-      استاد: {{ report.tutor.full_name }}
+      استاد: {{ report.tutor.full_name_ur|default:report.tutor.full_name }}
     {% else %}
       Tutor: {{ report.tutor.full_name }}
     {% endif %}
   </p>
 
+  <!-- Session (from report.exam.session) -->
+  {% with s=report.exam.session %}
+    {% if s %}
+      <p class="meta">
+        {% if lang == 'ur' %}
+          {{ s|session_to_urdu }}
+        {% else %}
+          Session: {{ s.name|default:s }}
+        {% endif %}
+      </p>
+    {% endif %}
+  {% endwith %}
+
+  <!-- Exam (Term — Exam Type) with Urdu translations -->
   <p class="meta">
     {% if lang == 'ur' %}
-      امتحان: {{ exam_display }}
+      امتحان:
+      {% if report.exam.name %}{{ report.exam.name|term_to_urdu }}{% endif %}
+      {% if report.exam.name and report.exam.exam_type %} — {% endif %}
+      {% if report.exam.exam_type %}{{ report.exam.exam_type|exam_type_to_urdu }}{% endif %}
     {% else %}
-      Exam: {{ exam_display }}
+      Exam:
+      {% if report.exam.name %}{{ report.exam.name }}{% endif %}
+      {% if report.exam.name and report.exam.exam_type %} — {% endif %}
+      {% if report.exam.exam_type %}{{ report.exam.exam_type }}{% endif %}
     {% endif %}
   </p>
 
+  <!-- Report date -->
   <p class="meta">
     {% if lang == 'ur' %}
       تاریخ: {{ report.report_date|convert_urdu_date }}
@@ -169,12 +153,12 @@
           <td>{{ entry.subject.name|subject_to_urdu }}</td>
           <td>{{ entry.marks_obtained|convert_urdu }}</td>
           <td>{{ entry.total_marks|convert_urdu }}</td>
-          <td>{{ entry.percentage|floatformat:2|convert_urdu }}%</td>
+          <td>{{ entry.marks_obtained|percentage:entry.total_marks|floatformat:"2"|convert_urdu }}%</td>
         {% else %}
           <td>{{ entry.subject.name }}</td>
           <td>{{ entry.marks_obtained }}</td>
           <td>{{ entry.total_marks }}</td>
-          <td>{{ entry.percentage|floatformat:2 }}%</td>
+          <td>{{ entry.marks_obtained|percentage:entry.total_marks|floatformat:"2" }}%</td>
         {% endif %}
       </tr>
       {% empty %}

@@ -1,0 +1,17 @@
+s_8wekyb3d8bbwe!Microsoft.OutlookforWindows') supports 4 extensions but has no verbs
+[27/Oct/2025 14:21:58] "POST /api/token/ HTTP/1.1" 200 489
+[27/Oct/2025 14:22:05] "POST /api/test/notify-send HTTP/1.1" 200 78
+[27/Oct/2025 14:22:05,658] - Broken pipe from ('127.0.0.1', 49671)
+[27/Oct/2025 14:22:05] "POST /api/test/reset HTTP/1.1" 200 160
+[27/Oct/2025 14:22:05,834] - Broken pipe from ('127.0.0.1', 49670)
+[27/Oct/2025 14:22:05,898] - Broken pipe from ('127.0.0.1', 49333)
+[27/Oct/2025 14:22:09] "POST /api/token/ HTTP/1.1" 200 489
+[27/Oct/2025 14:22:13] "PUT /api/settings/branding HTTP/1.1" 200 144
+[27/Oct/2025 14:22:13] "POST /api/sessions HTTP/1.1" 201 49
+[27/Oct/2025 14:22:13] "POST /api/subjects HTTP/1.1" 201 38
+[27/Oct/2025 14:22:13] "POST /api/students HTTP/1.1" 201 88
+[27/Oct/2025 14:22:13] "POST /api/marks HTTP/1.1" 201 11
+Method Not Allowed: /api/reports/generate
+[27/Oct/2025 14:22:13] "GET /api/reports/generate?session=298&student=180 HTTP/1.1" 405 40
+[27/Oct/2025 14:22:13,818] - Broken pipe from ('127.0.0.1', 49731)
+[27/Oct/2025 14:22:13,930] - Broken pipe from ('127.0.0.1', 49688)

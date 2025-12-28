@@ -1,19 +1,22 @@
 # reporting_platform/settings.py
 from pathlib import Path
 import os
-import dj_database_url  # used to parse DATABASE_URL and force SSL
-import certifi  # <— NEW: provides a CA bundle for TLS verification
+
+# 3rd-party libs used here:
+#   pip install django-cors-headers whitenoise dj-database-url certifi
+import dj_database_url          # parse DATABASE_URL when using Postgres
+import certifi                  # provides a CA bundle for TLS verification
 
 # ---------------------------
 # Core
 # ---------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Keep real SECRET_KEY in env on Render
+# Keep real SECRET_KEY in env on Render/Prod
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-only-for-local")
 
 # DEBUG from env: "1"/"true"/"True" → True
-DEBUG = os.environ.get("DEBUG", "0") in ("1", "true", "True")
+DEBUG = os.environ.get("DEBUG", "1") in ("1", "true", "True")  # default True for local
 
 # Render provides this on deploy; we’ll add it to hosts/CSRF if present
 RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME", "")
@@ -21,20 +24,34 @@ RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME", "")
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
-# If you also use a custom domain, add it here:
+# Add your custom domain(s) here in prod if any:
 # ALLOWED_HOSTS += ["app.example.com"]
 
-# CORS (allow your local React dev server by default)
-DEFAULT_CORS = ["http://localhost:3000", "http://127.0.0.1:3000"]
+# ---------------------------
+# CORS / CSRF for Frontend
+# ---------------------------
+# Allow your local React dev server(s)
+DEFAULT_CORS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    # add others if you use Vite etc.
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 ENV_CORS = [o.strip() for o in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",") if o.strip()]
 CORS_ALLOWED_ORIGINS = [*DEFAULT_CORS, *ENV_CORS]
 
-# Exact origins required for CSRF (no wildcards)
+# Exact origins for CSRF (needed if you ever use cookie auth; harmless with JWT)
 CSRF_TRUSTED_ORIGINS = []
 if RENDER_EXTERNAL_HOSTNAME:
     CSRF_TRUSTED_ORIGINS.append(f"https://{RENDER_EXTERNAL_HOSTNAME}")
-# If you bind a custom domain, add it here:
-# CSRF_TRUSTED_ORIGINS += ["https://app.example.com"]
+# Trust local dev ports too (safe in DEBUG)
+CSRF_TRUSTED_ORIGINS += [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 
 # ---------------------------
 # Applications
@@ -47,12 +64,13 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+     "django_filters",
 
     # Third-party
-    "corsheaders",
+    "corsheaders",         # <— enable CORS for React dev server
     "rest_framework",
 
-    # Your apps
+    # Your app
     "reports",
 ]
 
@@ -62,7 +80,7 @@ MIDDLEWARE = [
     # Whitenoise must be directly after SecurityMiddleware
     "whitenoise.middleware.WhiteNoiseMiddleware",
 
-    # CORS early in the chain
+    # CORS should be high in the chain and before CommonMiddleware
     "corsheaders.middleware.CorsMiddleware",
 
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -95,12 +113,9 @@ WSGI_APPLICATION = "reporting_platform.wsgi.application"
 ASGI_APPLICATION = "reporting_platform.asgi.application"
 
 # ---------------------------
-# Database (Render Postgres with enforced SSL)
+# Database
 # ---------------------------
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-
-# Local/dev fallback (or when DATABASE_URL is absent)
+# Default to SQLite locally; use DATABASE_URL for Postgres in prod
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
@@ -108,26 +123,17 @@ DATABASES = {
     }
 }
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()  # strip to avoid trailing spaces
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 if DATABASE_URL:
-    # Parse URL and create a Postgres config
     db_cfg = dj_database_url.parse(
         DATABASE_URL,
-        conn_max_age=600,  # keep connections pooled
-        ssl_require=False  # we'll set SSL options explicitly below
+        conn_max_age=600,   # connection pooling
+        ssl_require=False   # set SSL options explicitly below
     )
-
-    # Ensure SSL with a CA bundle — this avoids handshake closes on some hosts
+    # Enforce TLS with CA bundle (fixes "SSL connection closed unexpectedly")
     opts = db_cfg.get("OPTIONS", {})
-    # Option 1 (usually enough): require TLS without hostname verification
     opts["sslmode"] = opts.get("sslmode", "require")
     opts["sslrootcert"] = opts.get("sslrootcert", certifi.where())
-
-    # If you still see "SSL connection has been closed unexpectedly",
-    # try STRICT verification instead of plain "require":
-    # opts["sslmode"] = "verify-full"   # <= uncomment to enforce hostname verification
-    # opts["sslrootcert"] = certifi.where()
-
     db_cfg["OPTIONS"] = opts
     DATABASES["default"] = db_cfg
 
@@ -140,13 +146,12 @@ USE_I18N = True
 USE_TZ = True
 
 # ---------------------------
-# Static files (Whitenoise)
+# Static files (WhiteNoise)
 # ---------------------------
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"] if (BASE_DIR / "static").exists() else []
 
-# Django 5+ STORAGES API
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
@@ -155,31 +160,47 @@ STORAGES = {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
-
-# Cache-control for static files (served by Whitenoise)
-WHITENOISE_MAX_AGE = 31536000  # 1 year
+WHITENOISE_MAX_AGE = 31536000  # 1 year cache for static files
 
 # ---------------------------
-# Security (behind a proxy)
+# Security
 # ---------------------------
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
+# In local dev, do NOT force HTTPS; redirects break CORS preflight (OPTIONS)
+SECURE_SSL_REDIRECT = os.environ.get(
+    "SECURE_SSL_REDIRECT",
+    "0" if DEBUG else "1"      # default: off in DEBUG, on in production
+) == "1"
+
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
-SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "1") == "1"
 
 # ---------------------------
-# DRF
+# Django REST Framework
 # ---------------------------
+APPEND_SLASH = True  # DRF DefaultRouter uses trailing slashes
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        "reports.auth.LenientJWTAuthentication",
         "rest_framework_simplejwt.authentication.JWTAuthentication",
-        # optionally enable session auth for admin/testing:
-        # "rest_framework.authentication.SessionAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
     ],
-    "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.AllowAny",
+     "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.AllowAny",   # public read by default (safe for GET)
+    ],
+    "DEFAULT_PARSER_CLASSES": [
+        "rest_framework.parsers.JSONParser",
+        "rest_framework.parsers.FormParser",
+        "rest_framework.parsers.MultiPartParser",
+    ],
+        "DEFAULT_FILTER_BACKENDS": [
+        "django_filters.rest_framework.DjangoFilterBackend",
     ],
 }
+
+
+# Helpful for DRF trailing slashes (default True). Keep your frontend URLs ending in '/'
+APPEND_SLASH = True
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

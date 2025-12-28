@@ -4,13 +4,24 @@ import re
 register = template.Library()
 
 # -----------------------------
-# Digits & date (unchanged)
+# Digits & date
 # -----------------------------
 URDU_DIGITS = '۰۱۲۳۴۵۶۷۸۹'
 EN_DIGITS = '0123456789'
 
 def to_urdu_number(val):
     return ''.join(URDU_DIGITS[EN_DIGITS.index(ch)] if ch in EN_DIGITS else ch for ch in str(val))
+
+@register.filter(name="report_label")
+def report_label(value: str) -> str:
+    """
+    Translate 'Report' to Urdu for the PDF header.
+    Use as: {{ "Report"|report_label }}
+    """
+    text = (str(value) or "").strip().lower()
+    if text.startswith("report"):
+        return "کارکردگی نامہ"
+    return value
 
 @register.filter
 def convert_urdu(val):
@@ -25,16 +36,39 @@ URDU_MONTHS = {
 
 @register.filter
 def convert_urdu_date(date):
-    """Convert a date (datetime/date) to Urdu-formatted string."""
+    """
+    Convert a date (datetime/date) to Urdu-formatted string.
+    Natural Urdu order: DAY MONTH YEAR, all in Urdu digits.
+    Example: ۲۹ ستمبر ۲۰۲۵
+    """
     day = to_urdu_number(date.day)
     month = URDU_MONTHS[date.strftime('%B')]
     year = to_urdu_number(date.year)
-    return f"{year} {day}, {month}"
+    return f"{day} {month} {year}"
+
+# -----------------------------
+# Simple arithmetic for templates
+# -----------------------------
+@register.filter
+def percentage(obtained, total):
+    """
+    Compute (obtained / total) * 100 safely for templates.
+    Usage:
+      {{ obtained|percentage:total|floatformat:"2" }}
+    Returns 0 if values are missing or total is 0.
+    """
+    try:
+        mo = float(obtained)
+        tm = float(total)
+        if tm <= 0:
+            return 0.0
+        return (mo / tm) * 100.0
+    except Exception:
+        return 0.0
 
 # -----------------------------
 # Subject translation
 # -----------------------------
-# 1) Base subjects (parent level)
 PARENT_MAP = {
     "mathematics": "ریاضی",
     "math": "ریاضی",
@@ -90,9 +124,7 @@ PARENT_MAP = {
     "islamic history": "اسلامی تاریخ",
 }
 
-# 2) Sub-branches per parent (common school/board syllabi)
 SUB_MAP = {
-    # English
     "english": {
         "language": "انگریزی زبان",
         "literature": "انگریزی ادب",
@@ -109,7 +141,6 @@ SUB_MAP = {
         "precis": "خلاصہ نویسی",
         "translation": "ترجمہ",
     },
-    # Urdu
     "urdu": {
         "language": "اردو زبان",
         "literature": "اردو ادب",
@@ -118,7 +149,6 @@ SUB_MAP = {
         "comprehension": "تفہیم",
         "translation": "ترجمہ",
     },
-    # Mathematics
     "mathematics": {
         "arithmetic": "حساب",
         "algebra": "الجبرہ",
@@ -133,7 +163,6 @@ SUB_MAP = {
         "vectors": "سمتیات",
         "matrices": "میٹرکس",
     },
-    # Physics
     "physics": {
         "mechanics": "میکانیکیات",
         "electricity": "برقیات",
@@ -146,7 +175,6 @@ SUB_MAP = {
         "atomic physics": "جوہری طبیعیات",
         "nuclear physics": "ایٹمی طبیعیات",
     },
-    # Chemistry
     "chemistry": {
         "organic": "نامیاتی کیمسٹری",
         "inorganic": "غیر نامیاتی کیمسٹری",
@@ -154,7 +182,6 @@ SUB_MAP = {
         "analytical": "تجزیاتی کیمسٹری",
         "biochemistry": "حیات کیمسٹری",
     },
-    # Biology
     "biology": {
         "cell biology": "علم خلویات",
         "genetics": "وراثیات",
@@ -164,7 +191,6 @@ SUB_MAP = {
         "botany": "علم نباتات",
         "zoology": "علم حیوانات",
     },
-    # Computer Science / IT
     "computer science": {
         "programming": "برنامہ نویسی",
         "data structures": "ڈھانچےِ معلومات",
@@ -177,7 +203,6 @@ SUB_MAP = {
         "machine learning": "مشین لرننگ",
         "cyber security": "سائبر سکیورٹی",
     },
-    # Islamic / Pakistan Studies
     "islamic studies": {
         "quran": "قرآن",
         "hadith": "حدیث",
@@ -194,7 +219,6 @@ SUB_MAP = {
     },
 }
 
-# Extra common aliases that appear in school data
 ALIASES = {
     "english language": "انگریزی زبان",
     "english literature": "انگریزی ادب",
@@ -209,21 +233,15 @@ ALIASES = {
     "it": "انفارمیشن ٹیکنالوجی",
 }
 
-DELIMS = r"\s*[:/\-\u2013\u2014()]\s*"  # :, /, -, en/em dash, ( )
+DELIMS = r"\s*[:/\-\u2013\u2014()]\s*"
 
 def _norm(s: str) -> str:
-    return re.sub(r"\s+", " ", (s or "").strip().lower())
+    return re.sub(r"\s+", " ", (s or "").strip().lower().replace("—", "-").replace("–", "-"))
 
 def _split_parent_child(title: str):
-    """
-    Split subject into parent and (optional) sub-branch.
-    Supports: 'Parent - Child', 'Parent: Child', 'Parent (Child)'
-    """
     s = _norm(title)
-    # Try direct alias first
     if s in ALIASES:
-        return None, ALIASES[s]  # already fully translated
-
+        return None, ALIASES[s]
     parts = re.split(DELIMS, s)
     if len(parts) >= 2:
         parent = parts[0]
@@ -234,10 +252,8 @@ def _split_parent_child(title: str):
 def _translate_parent(p: str) -> str:
     if not p:
         return None
-    # try direct parent map
     if p in PARENT_MAP:
         return PARENT_MAP[p]
-    # small heuristics
     if p.endswith(" studies") and p[:-8] in PARENT_MAP:
         return PARENT_MAP[p[:-8]] + " (" + "مطالعہ" + ")"
     return None
@@ -246,20 +262,15 @@ def _translate_child(parent_key: str, child: str) -> str:
     if not child:
         return None
     c = _norm(child)
-    # direct alias like "english language"
     if c in ALIASES:
         return ALIASES[c]
-    # per-parent sub-map
     pk = parent_key or ""
     if pk in SUB_MAP:
-        # exact sub match
         if c in SUB_MAP[pk]:
             return SUB_MAP[pk][c]
-        # loose matches: e.g., "modern" -> "modern physics"
         for key, ur in SUB_MAP[pk].items():
             if c.startswith(key):
                 return ur
-    # generic fallbacks
     generic = {
         "language": "زبان",
         "literature": "ادب",
@@ -275,42 +286,82 @@ def _translate_child(parent_key: str, child: str) -> str:
 
 @register.filter
 def subject_to_urdu(title):
-    """
-    Translate English subject names to Urdu, with sub-branch support.
-    Examples:
-      - "English Language" -> "انگریزی زبان"
-      - "Mathematics - Algebra" -> "ریاضی (الجبرہ)"
-      - "Physics: Optics" -> "طبیعیات (نوریات)"
-      - "Computer Science (Programming)" -> "کمپیوٹر سائنس (برنامہ نویسی)"
-      - "Pakistan Studies: History" -> "مطالعہ پاکستان (پاکستان کی تاریخ)"
-    """
     if not title:
         return title
-
-    # First try full-alias & simple exact map
     s = _norm(title)
     if s in ALIASES:
         return ALIASES[s]
     if s in PARENT_MAP:
         return PARENT_MAP[s]
-
     parent_key, child_raw = _split_parent_child(title)
-
-    # If alias returned a direct Urdu phrase (parent_key None), just use that
     if parent_key is None and child_raw:
         return child_raw
-
     ur_parent = _translate_parent(parent_key) if parent_key else None
     ur_child = _translate_child(parent_key, child_raw) if child_raw else None
-
-    # Compose results smartly
     if ur_parent and ur_child:
         return f"{ur_parent} ({ur_child})"
     if ur_child and not ur_parent:
-        # we know child but not parent -> just child
         return ur_child
     if ur_parent and not ur_child and child_raw:
-        # have parent translation, show raw child in Urdu digits if numeric
         return f"{ur_parent} ({child_raw})"
-    # nothing matched -> return original
     return title
+
+# -----------------------------
+# Term / Exam Type / Session labels (Urdu)
+# -----------------------------
+@register.filter
+def term_to_urdu(term: str) -> str:
+    s = _norm(term)
+    mapping = {
+        "1st term": "پہلی مدت", "first term": "پہلی مدت", "term 1": "پہلی مدت",
+        "2nd term": "دوسری مدت", "second term": "دوسری مدت", "term 2": "دوسری مدت",
+        "3rd term": "تیسری مدت", "third term": "تیسری مدت", "term 3": "تیسری مددت",
+        "final term": "حتمی مدت", "final-term": "حتمی مدت",
+    }
+    return mapping.get(s, term)
+
+@register.filter
+def exam_type_to_urdu(exam_type: str) -> str:
+    s = _norm(exam_type)
+    mapping = {
+        "mid-term": "نصف سالانہ", "mid term": "نصف سالانہ", "midterm": "نصف سالانہ",
+        "final": "سالانہ", "annual": "سالانہ", "final term": "حتمی مدت",
+        "monthly tests": "ماہانہ امتحانات", "monthly test": "ماہانہ امتحان",
+        "weekly tests": "ہفتہ وار امتحانات", "weekly test": "ہفتہ وار امتحان",
+        "tests week": "امتحانات کا ہفتہ", "quiz": "مختصر امتحان", "quizzes": "مختصر امتحانات",
+        "unit test": "جزوی امتحان", "unit tests": "جزوی امتحانات",
+        "class test": "جماعتی امتحان", "class tests": "جماعتی امتحانات",
+        "assignment": "مشق تحریری", "assignments": "مشق تحریریں",
+        "oral": "زبانی امتحان", "practical": "عملی امتحان",
+    }
+    return mapping.get(s, exam_type)
+
+@register.filter
+def session_to_urdu(session) -> str:
+    prefix = "تعلیمی سال "
+    year = getattr(session, "year", None)
+    if isinstance(year, int):
+        return f"{prefix}{to_urdu_number(year)}–{to_urdu_number(year + 1)}"
+    name = getattr(session, "name", None)
+    if isinstance(name, str) and name.strip():
+        s = name.strip()
+        low = s.lower()
+        for lead in ("session", "academic year", "academic-year", "ay"):
+            if low.startswith(lead):
+                s = s[len(lead):].lstrip(" :ـ-–—-")
+                break
+        s = " ".join(to_urdu_number(tok) for tok in s.split())
+        return prefix + s if s else prefix.strip()
+    if isinstance(session, str):
+        s = session.strip()
+        low = s.lower()
+        for lead in ("session", "academic year", "academic-year", "ay"):
+            if low.startswith(lead):
+                s = s[len(lead):].lstrip(" :ـ-–—-")
+                break
+        s = " ".join(to_urdu_number(tok) for tok in s.split())
+        return prefix + s if s else prefix.strip()
+    sid = getattr(session, "id", None)
+    if sid is not None:
+        return f"{prefix}{to_urdu_number(sid)}"
+    return prefix.strip()
